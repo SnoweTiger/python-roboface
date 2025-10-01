@@ -1,4 +1,5 @@
 import time
+import asyncio
 from libs.oled import SSD1306
 from libs.robo_face import RoboFace, Mood
 
@@ -12,6 +13,8 @@ def main() -> None:
     try:
         oled = SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT, I2C_BUS, I2C_ADDR)
         robo = RoboFace(oled)
+
+        asyncio.run(robo.animate_smile())
 
         robo.set_mood(Mood.neutral)
         time.sleep(1)

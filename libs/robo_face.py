@@ -1,4 +1,5 @@
 import math
+import asyncio
 from enum import Enum
 
 from libs.oled import SSD1306
@@ -19,12 +20,19 @@ class Mood(Enum):
 
 
 class RoboFace:
-    def __init__(self, oled: SSD1306, border: bool = False, color: int = 1):
+    def __init__(
+        self,
+        oled: SSD1306,
+        border: bool = False,
+        color: int = 1,
+        duration: int = 5,
+    ):
         self.oled = oled
         self.cx = oled.width // 2
         self.cy = oled.height // 2
         self.border = border
         self.color = color
+        self.duration = duration
 
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
 
@@ -105,6 +113,24 @@ class RoboFace:
         self.right_eye_scale = None
         self.eyebrow_angle = 0
         self.mouth_type = MouthType.neutral
+
+    async def animate_smile(self, duration: float = 1.0, fps: int = 30) -> None:
+        self._set_smile()
+        smile_height = self.smile_height
+        frames_n = int(duration * fps)
+        self.smile_height = 0
+        f = 0
+
+        for _ in range(frames_n):
+            tmp = int(smile_height * f / frames_n)
+
+            # Draw only if smile_height changed
+            if tmp != self.smile_height:
+                self.smile_height = tmp
+                self._draw_frame()
+
+            await asyncio.sleep(1 / fps)
+            f += 1
 
     def _draw_frame(self) -> None:
         oled = self.oled
