@@ -52,7 +52,7 @@ class RoboFace:
 
         # Calc eyebrow sizes
         self.eyebrow_angle = 0
-        self.eyebrow_width = self.radius * 0.7
+        self.eyebrow_width = int(self.radius * 0.5)
 
         # Init face state
         self.wink_left = False
@@ -122,11 +122,33 @@ class RoboFace:
         f = 0
 
         for _ in range(frames_n):
-            tmp = int(smile_height * f / frames_n)
+            tmp_smile = int(smile_height * f / frames_n)
 
             # Draw only if smile_height changed
-            if tmp != self.smile_height:
-                self.smile_height = tmp
+            if tmp_smile != self.smile_height:
+                self.smile_height = tmp_smile
+                self._draw_frame()
+
+            await asyncio.sleep(1 / fps)
+            f += 1
+
+    async def animate_angry(self, duration: float = 1.0, fps: int = 30) -> None:
+        self._set_angry()
+        smile_height = self.smile_height
+        eyebrow_width = self.eyebrow_width
+        frames_n = int(duration * fps)
+        self.smile_height = 0
+        # self.eyebrow_width = 0
+        f = 0
+
+        for _ in range(frames_n):
+            tmp_smile = int(smile_height * f / frames_n)
+            tmp_eyebrow = int(eyebrow_width * f / frames_n)
+
+            # Draw only if smile_height changed
+            if tmp_smile != self.smile_height or tmp_eyebrow != self.eyebrow_width:
+                self.smile_height = tmp_smile
+                self.eyebrow_width = tmp_eyebrow
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
@@ -186,21 +208,21 @@ class RoboFace:
             dx = int(math.cos(self.eyebrow_angle) * self.eyebrow_width)
             dy = int(math.sin(self.eyebrow_angle) * self.eyebrow_width)
 
-            eyebrow_x_l = self.cx - self.eye_offset_x + int(self.radius * 0.05)
-            eyebrow_x_r = self.cx + self.eye_offset_x - int(self.radius * 0.05)
+            eyebrow_x_l = self.cx - self.eye_offset_x + int(self.radius * 0.3)
+            eyebrow_x_r = self.cx + self.eye_offset_x - int(self.radius * 0.3)
             eyebrow_y = (
                 self.cy - self.eye_offset_y - self.eye_radius - int(self.radius * 0.1)
             )
-            x0 = eyebrow_x_l - dx // 2
-            y0 = eyebrow_y - dy // 2
-            x1 = eyebrow_x_l + dx // 2
-            y1 = eyebrow_y + dy // 2
+            x0 = eyebrow_x_l
+            y0 = eyebrow_y
+            x1 = eyebrow_x_l - dx
+            y1 = eyebrow_y - dy
             oled.line(x0, y0, x1, y1, 1)
 
-            x0 = eyebrow_x_r - dx // 2
-            y0 = eyebrow_y + dy // 2
-            x1 = eyebrow_x_r + dx // 2
-            y1 = eyebrow_y - dy // 2
+            x0 = eyebrow_x_r
+            y0 = eyebrow_y
+            x1 = eyebrow_x_r + dx
+            y1 = eyebrow_y - dy
             oled.line(x0, y0, x1, y1, 1)
 
         # Mouth
