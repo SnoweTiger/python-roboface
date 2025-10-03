@@ -98,11 +98,11 @@ class RoboFace:
         self.eyebrow_angle = math.pi / 8
         self.mouth_type = MouthType.negative
 
-    def _set_shocked(self) -> None:
+    def _set_shocked(self, left: None | int = None, right: None | int = 2) -> None:
         self.wink_left = False
         self.wink_right = False
-        self.left_eye_scale = None
-        self.right_eye_scale = 2
+        self.left_eye_scale = left
+        self.right_eye_scale = right
         self.eyebrow_angle = 0
         self.mouth_type = MouthType.neutral
 
@@ -119,9 +119,8 @@ class RoboFace:
         smile_height = self.smile_height
         frames_n = int(duration * fps)
         self.smile_height = 0
-        f = 0
 
-        for _ in range(frames_n):
+        for f in range(frames_n):
             tmp_smile = int(smile_height * f / frames_n)
 
             # Draw only if smile_height changed
@@ -130,7 +129,6 @@ class RoboFace:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
-            f += 1
 
     async def animate_angry(self, duration: float = 1.0, fps: int = 30) -> None:
         self._set_angry()
@@ -139,9 +137,8 @@ class RoboFace:
         frames_n = int(duration * fps)
         self.smile_height = 0
         # self.eyebrow_width = 0
-        f = 0
 
-        for _ in range(frames_n):
+        for f in range(frames_n):
             tmp_smile = int(smile_height * f / frames_n)
             tmp_eyebrow = int(eyebrow_width * f / frames_n)
 
@@ -152,7 +149,39 @@ class RoboFace:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
-            f += 1
+
+    async def animate_shocked(
+        self,
+        duration: float = 1.0,
+        fps: int = 30,
+        left: None | int = None,
+        right: None | int = 2,
+    ) -> None:
+        self._set_shocked(left, right)
+        left_eye_scale = self.left_eye_scale
+        right_eye_scale = self.right_eye_scale
+        self.left_eye_scale = 1 if left_eye_scale else left_eye_scale
+        self.right_eye_scale = 1 if right_eye_scale else right_eye_scale
+        frames_n = int(duration * fps)
+
+        for f in range(frames_n):
+            tmp_left_eye_scale = (
+                1 + (f / frames_n) if left_eye_scale else left_eye_scale
+            )
+            tmp_right_eye_scale = (
+                1 + (f / frames_n) if right_eye_scale else right_eye_scale
+            )
+
+            # Draw only if smile_height changed
+            if (
+                tmp_left_eye_scale != self.left_eye_scale
+                or tmp_right_eye_scale != self.right_eye_scale
+            ):
+                self.left_eye_scale = tmp_left_eye_scale
+                self.right_eye_scale = tmp_right_eye_scale
+                self._draw_frame()
+
+            await asyncio.sleep(1 / fps)
 
     def _draw_frame(self) -> None:
         oled = self.oled

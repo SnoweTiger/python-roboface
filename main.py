@@ -18,6 +18,8 @@ def main() -> None:
 
         asyncio.run(robo.animate_angry())
 
+        asyncio.run(robo.animate_shocked())
+
         robo.set_mood(Mood.neutral)
         time.sleep(1)
 
