@@ -14,12 +14,17 @@ def main() -> None:
         oled = SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT, I2C_BUS, I2C_ADDR)
         robo = RoboFace(oled)
 
+        # Async
         asyncio.run(robo.animate_smile())
+        asyncio.run(robo.animate_neutral())
 
         asyncio.run(robo.animate_angry())
+        asyncio.run(robo.animate_neutral())
 
         asyncio.run(robo.animate_shocked())
+        asyncio.run(robo.animate_neutral())
 
+        # Sync
         robo.set_mood(Mood.neutral)
         time.sleep(1)
 

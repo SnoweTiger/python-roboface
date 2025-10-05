@@ -33,6 +33,7 @@ class RoboFace:
         self.border = border
         self.color = color
         self.duration = duration
+        self.mood = Mood.neutral
 
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
 
@@ -114,14 +115,22 @@ class RoboFace:
         self.eyebrow_angle = 0
         self.mouth_type = MouthType.neutral
 
-    async def animate_smile(self, duration: float = 1.0, fps: int = 30) -> None:
+    async def animate_smile(
+        self,
+        duration: float = 1.0,
+        fps: int = 30,
+        reverse: bool = False,
+    ) -> None:
+        self.mood = Mood.smile
         self._set_smile()
         smile_height = self.smile_height
         frames_n = int(duration * fps)
         self.smile_height = 0
 
         for f in range(frames_n):
-            tmp_smile = int(smile_height * f / frames_n)
+            # The percentage we show 0-1. For reverse decreases with each frame.
+            k = (frames_n - f) / frames_n if reverse else f / frames_n
+            tmp_smile = int(smile_height * k)
 
             # Draw only if smile_height changed
             if tmp_smile != self.smile_height:
@@ -130,7 +139,13 @@ class RoboFace:
 
             await asyncio.sleep(1 / fps)
 
-    async def animate_angry(self, duration: float = 1.0, fps: int = 30) -> None:
+    async def animate_angry(
+        self,
+        duration: float = 1.0,
+        fps: int = 30,
+        reverse: bool = False,
+    ) -> None:
+        self.mood = Mood.angry
         self._set_angry()
         smile_height = self.smile_height
         eyebrow_width = self.eyebrow_width
@@ -139,8 +154,10 @@ class RoboFace:
         # self.eyebrow_width = 0
 
         for f in range(frames_n):
-            tmp_smile = int(smile_height * f / frames_n)
-            tmp_eyebrow = int(eyebrow_width * f / frames_n)
+            # The percentage we show 0-1. For reverse decreases with each frame.
+            k = (frames_n - f) / frames_n if reverse else f / frames_n
+            tmp_smile = int(smile_height * k)
+            tmp_eyebrow = int(eyebrow_width * k)
 
             # Draw only if smile_height changed
             if tmp_smile != self.smile_height or tmp_eyebrow != self.eyebrow_width:
@@ -156,7 +173,9 @@ class RoboFace:
         fps: int = 30,
         left: None | int = None,
         right: None | int = 2,
+        reverse: bool = False,
     ) -> None:
+        self.mood = Mood.shocked
         self._set_shocked(left, right)
         left_eye_scale = self.left_eye_scale
         right_eye_scale = self.right_eye_scale
@@ -165,12 +184,10 @@ class RoboFace:
         frames_n = int(duration * fps)
 
         for f in range(frames_n):
-            tmp_left_eye_scale = (
-                1 + (f / frames_n) if left_eye_scale else left_eye_scale
-            )
-            tmp_right_eye_scale = (
-                1 + (f / frames_n) if right_eye_scale else right_eye_scale
-            )
+            # The percentage we show 0-1. For reverse decreases with each frame.
+            k = (frames_n - f) / frames_n if reverse else f / frames_n
+            tmp_left_eye_scale = 1 + k if left_eye_scale else left_eye_scale
+            tmp_right_eye_scale = 1 + k if right_eye_scale else right_eye_scale
 
             # Draw only if smile_height changed
             if (
@@ -182,6 +199,17 @@ class RoboFace:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
+
+    async def animate_neutral(self, duration: float = 1.0, fps: int = 30) -> None:
+        match self.mood:
+            case Mood.smile:
+                await self.animate_smile(duration=duration, fps=fps, reverse=True)
+            case Mood.angry:
+                await self.animate_angry(duration=duration, fps=fps, reverse=True)
+            case Mood.shocked:
+                await self.animate_shocked(duration=duration, fps=fps, reverse=True)
+        self.mood = Mood.neutral
+        self._set_neutral()
 
     def _draw_frame(self) -> None:
         oled = self.oled
