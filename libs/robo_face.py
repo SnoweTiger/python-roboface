@@ -1,14 +1,15 @@
 import math
 import asyncio
 from enum import Enum
+from typing import Tuple
 
 from libs.oled import SSD1306
 
 
-class MouthType(Enum):
+class MouthMood(Enum):
     neutral = 1
     smile = 2
-    negative = 3
+    angry = 3
 
 
 class Mood(Enum):
@@ -17,6 +18,118 @@ class Mood(Enum):
     smile = 3
     happy = 4
     shocked = 5
+
+
+class Mouth:
+    def __init__(
+        self,
+        cx: int,  # in pixels
+        cy: int,  # in pixels
+        height: int,  # in pixels
+        width: int,  # in pixels
+        enable: bool = True,
+        mood: MouthMood = MouthMood.neutral,
+    ) -> None:
+        self.cx = cx
+        self.cy = cy
+        self.height = height
+        self.width = width
+        self.enable = enable
+        self.mood = mood
+
+        # calculate points
+        self.lx = self.cx - self.width // 2
+        self.rx = self.cx + self.width // 2
+        self.dy = self.height // 2
+
+    @classmethod
+    def from_face_radius(
+        cls,
+        face_cx: int,
+        face_cy: int,
+        radius: int,
+        scale_offset_y: float = 0.35,
+        scale_height: float = 0.4,
+        scale_width: float = 0.8,
+    ):
+        return cls(
+            cx=face_cx,
+            cy=face_cy + int(radius * scale_offset_y),
+            height=int(radius * scale_height),
+            width=int(radius * scale_width),
+        )
+
+    def set_scale(self, scale: float = 1.0) -> bool:
+        """update smile height by scale.Return True if value changed, return False if last height equal current."""
+        dy = int(scale * self.height / 2)
+
+        if dy == self.dy:
+            return False
+
+        self.dy = dy
+        return True
+
+    def get_points(
+        self,
+        mood: MouthMood | None = None,
+    ) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
+        if mood is not None:
+            self.mood = mood
+
+        match self.mood:
+            case MouthMood.smile:
+                print("smile")
+                p0 = (self.lx, self.cy - self.dy)
+                p1 = (self.cx, self.cy + self.dy)
+                p2 = (self.rx, self.cy - self.dy)
+
+            case MouthMood.angry:
+                print("negative")
+                p0 = (self.lx, self.cy + self.dy)
+                p1 = (self.cx, self.cy - self.dy)
+                p2 = (self.rx, self.cy + self.dy)
+
+            case MouthMood.neutral | _:
+                print("neutral")
+                p0 = (self.lx, self.cy)
+                p1 = (self.cx, self.cy)
+                p2 = (self.rx, self.cy)
+
+        return (p0, p1, p2)
+
+
+class Eye:
+    def __init__(
+        self,
+        cx: int,  # in pixels
+        cy: int,  # in pixels
+        radius: int,  # in pixels
+        enable: bool = True,
+    ):
+        self.cx = cx
+        self.cy = cy
+        self.radius = radius
+        self.enable = enable
+
+    @classmethod
+    def from_face_radius(
+        cls,
+        face_cx: int,
+        face_cy: int,
+        face_radius: int,
+        scale_offset_x: float = 0.45,
+        scale_offset_y: float = 0.35,
+        scale_radius: float = 0.17,
+        right: bool = True,
+        enable: bool = True,
+    ):
+        k = 1 if right else -1
+        return cls(
+            cx=face_cx + k * int(face_radius * scale_offset_x),
+            cy=face_cy - int(face_radius * scale_offset_y),
+            radius=int(face_radius * scale_radius),
+            enable=enable,
+        )
 
 
 class RoboFace:
@@ -47,6 +160,8 @@ class RoboFace:
         self.right_eye_scale = None
 
         # Calc mouth sizes
+        self.mouth = Mouth.from_face_radius(self.cx, self.cy, self.radius)
+
         self.smile_width = int(self.radius * 0.8)
         self.smile_height = int(self.radius * 0.2)
         self.mouth_y = self.cy + int(self.radius * 0.35)
@@ -58,10 +173,12 @@ class RoboFace:
         # Init face state
         self.wink_left = False
         self.wink_right = False
-        self.mouth_type = MouthType.neutral
+        self.mouth_type = MouthMood.neutral
 
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
+        self.mouth.set_scale(1.0)  # set full height for static
+
         match mood:
             case Mood.smile:
                 self._set_smile()
@@ -81,7 +198,8 @@ class RoboFace:
         self.left_eye_scale = None
         self.right_eye_scale = None
         self.eyebrow_angle = 0
-        self.mouth_type = MouthType.smile
+
+        self.mouth.mood = MouthMood.smile
 
     def _set_happy(self) -> None:
         self.wink_left = True
@@ -89,7 +207,8 @@ class RoboFace:
         self.left_eye_scale = None
         self.right_eye_scale = None
         self.eyebrow_angle = 0
-        self.mouth_type = MouthType.smile
+
+        self.mouth.mood = MouthMood.smile
 
     def _set_angry(self) -> None:
         self.wink_left = False
@@ -97,7 +216,8 @@ class RoboFace:
         self.left_eye_scale = None
         self.right_eye_scale = None
         self.eyebrow_angle = math.pi / 8
-        self.mouth_type = MouthType.negative
+
+        self.mouth.mood = MouthMood.angry
 
     def _set_shocked(self, left: None | int = None, right: None | int = 2) -> None:
         self.wink_left = False
@@ -105,7 +225,8 @@ class RoboFace:
         self.left_eye_scale = left
         self.right_eye_scale = right
         self.eyebrow_angle = 0
-        self.mouth_type = MouthType.neutral
+
+        self.mouth.mood = MouthMood.neutral
 
     def _set_neutral(self) -> None:
         self.wink_left = False
@@ -113,7 +234,8 @@ class RoboFace:
         self.left_eye_scale = None
         self.right_eye_scale = None
         self.eyebrow_angle = 0
-        self.mouth_type = MouthType.neutral
+
+        self.mouth.mood = MouthMood.neutral
 
     async def animate_smile(
         self,
@@ -123,18 +245,16 @@ class RoboFace:
     ) -> None:
         self.mood = Mood.smile
         self._set_smile()
-        smile_height = self.smile_height
         frames_n = int(duration * fps)
         self.smile_height = 0
 
         for f in range(frames_n):
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
-            tmp_smile = int(smile_height * k)
+            updated = self.mouth.set_scale(k)
 
             # Draw only if smile_height changed
-            if tmp_smile != self.smile_height:
-                self.smile_height = tmp_smile
+            if updated:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
@@ -147,21 +267,16 @@ class RoboFace:
     ) -> None:
         self.mood = Mood.angry
         self._set_angry()
-        smile_height = self.smile_height
         eyebrow_width = self.eyebrow_width
         frames_n = int(duration * fps)
-        self.smile_height = 0
-        # self.eyebrow_width = 0
 
         for f in range(frames_n):
-            # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
-            tmp_smile = int(smile_height * k)
             tmp_eyebrow = int(eyebrow_width * k)
+            updated = self.mouth.set_scale(k)
 
             # Draw only if smile_height changed
-            if tmp_smile != self.smile_height or tmp_eyebrow != self.eyebrow_width:
-                self.smile_height = tmp_smile
+            if updated or tmp_eyebrow != self.eyebrow_width:
                 self.eyebrow_width = tmp_eyebrow
                 self._draw_frame()
 
@@ -283,28 +398,7 @@ class RoboFace:
             oled.line(x0, y0, x1, y1, 1)
 
         # Mouth
-        match self.mouth_type:
-            case MouthType.smile:
-                print("smile")
-                p0 = (self.cx - self.eye_radius * 2, self.mouth_y - self.smile_height)
-                p1 = (self.cx, self.mouth_y + self.smile_height)
-                p2 = (self.cx + self.eye_radius * 2, self.mouth_y - self.smile_height)
-                oled.quad_bezier(p0, p1, p2, offset_y=self.smile_height // 2)
-
-            case MouthType.negative:
-                print("negative")
-                p0 = (self.cx - self.eye_radius * 2, self.mouth_y + self.smile_height)
-                p1 = (self.cx, self.mouth_y - self.smile_height)
-                p2 = (self.cx + self.eye_radius * 2, self.mouth_y + self.smile_height)
-                oled.quad_bezier(p0, p1, p2, offset_y=-self.smile_height // 2)
-
-            case MouthType.neutral | _:
-                print("neutral")
-                oled.hline(
-                    self.cx - self.smile_width // 2,
-                    self.cy + int(self.radius * 0.35),
-                    self.smile_width,
-                    self.color,
-                )
+        p0, p1, p2 = self.mouth.get_points()
+        oled.quad_bezier(p0, p1, p2)  # offset_y=self.mouth.height // 4)
 
         oled.show()
