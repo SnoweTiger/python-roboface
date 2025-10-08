@@ -185,14 +185,14 @@ class RoboFace:
         oled: SSD1306,
         border: bool = False,
         color: int = 1,
-        duration: int = 5,
+        animation_duration: float = 1,
     ):
         self.oled = oled
         self.cx = oled.width // 2
         self.cy = oled.height // 2
         self.border = border
         self.color = color
-        self.duration = duration
+        self.animation_duration = animation_duration
         self.mood = Mood.neutral
 
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
@@ -292,12 +292,13 @@ class RoboFace:
 
     async def animate_smile(
         self,
-        duration: float = 1.0,
+        duration: float | None = None,
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
         self.mood = Mood.smile
         self._set_smile()
+        duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
         self.smile_height = 0
 
@@ -314,12 +315,13 @@ class RoboFace:
 
     async def animate_happy(
         self,
-        duration: float = 1.0,
+        duration: float | None = None,
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
         self.mood = Mood.happy
         self._set_happy()
+        duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
         self.smile_height = 0
 
@@ -338,13 +340,14 @@ class RoboFace:
 
     async def animate_angry(
         self,
-        duration: float = 1.0,
+        duration: float | None = None,
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
         self.mood = Mood.angry
         self._set_angry()
         eyebrow_width = self.eyebrow_width
+        duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
         for f in range(frames_n):
@@ -361,12 +364,13 @@ class RoboFace:
 
     async def animate_shocked(
         self,
-        duration: float = 1.0,
+        duration: float | None = None,
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
         self.mood = Mood.shocked
         self._set_shocked()
+        duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
         for f in range(frames_n):
@@ -381,7 +385,12 @@ class RoboFace:
 
             await asyncio.sleep(1 / fps)
 
-    async def animate_neutral(self, duration: float = 1.0, fps: int = 30) -> None:
+    async def animate_neutral(
+        self,
+        duration: float | None = None,
+        fps: int = 30,
+    ) -> None:
+        duration = duration if duration else self.animation_duration
         match self.mood:
             case Mood.smile:
                 await self.animate_smile(duration=duration, fps=fps, reverse=True)
