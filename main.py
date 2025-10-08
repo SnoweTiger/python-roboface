@@ -18,6 +18,9 @@ def main() -> None:
         asyncio.run(robo.animate_smile())
         asyncio.run(robo.animate_neutral())
 
+        asyncio.run(robo.animate_happy())
+        asyncio.run(robo.animate_neutral())
+
         asyncio.run(robo.animate_angry())
         asyncio.run(robo.animate_neutral())
 

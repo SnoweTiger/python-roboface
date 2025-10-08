@@ -114,6 +114,7 @@ class Eye:
         self.get_shocked = get_shocked
         self.mood = Mood.neutral
         self.dy = 0
+        self.do = 1
 
     @classmethod
     def from_face_radius(
@@ -147,6 +148,16 @@ class Eye:
         self.dy = dy
         return True
 
+    def set_open(self, open: float = 1.0) -> bool:
+        """update eye height by scale. Return True if value changed, return False if last height equal current."""
+        do = open
+
+        if do == self.do:
+            return False
+
+        self.do = do
+        return True
+
     def get_points(self, mood: Mood | None = None) -> Tuple[int, int, int, float]:
         if mood is not None:
             self.mood = mood
@@ -154,10 +165,13 @@ class Eye:
         match self.mood:
             case Mood.shocked if self.get_shocked:
                 radius = self.radius + self.dy
-                open_percent = 1.0
+                open_percent = 1
+            case Mood.smile:
+                radius = self.radius
+                open_percent = 1
             case Mood.happy:
                 radius = self.radius
-                open_percent = 0.0
+                open_percent = self.do
             case Mood.neutral | _:
                 radius = self.radius
                 open_percent = 1.0
@@ -236,23 +250,23 @@ class RoboFace:
         self._draw_frame()
 
     def _set_smile(self) -> None:
-        # self.wink_left = False
-        # self.wink_right = False
         self.eyebrow_angle = 0
+
+        self.eye_r.mood = Mood.neutral
+        self.eye_l.mood = Mood.neutral
         self.mouth.mood = MouthMood.smile
 
     def _set_happy(self) -> None:
-        # self.wink_left = True
-        # self.wink_right = True
         self.eyebrow_angle = 0
 
         self.eye_r.mood = Mood.happy
         self.eye_l.mood = Mood.happy
         self.mouth.mood = MouthMood.smile
 
+        self.eye_r.set_open(0)
+        self.eye_l.set_open(0)
+
     def _set_angry(self) -> None:
-        # self.wink_left = False
-        # self.wink_right = False
         self.eyebrow_angle = math.pi / 8
 
         self.eye_r.mood = Mood.neutral
@@ -260,22 +274,20 @@ class RoboFace:
         self.mouth.mood = MouthMood.angry
 
     def _set_shocked(self) -> None:
-        # self.wink_left = False
-        # self.wink_right = False
         self.eyebrow_angle = 0
 
         self.eye_r.mood = Mood.shocked
-        self.eye_r.set_scale(1)
         self.eye_l.mood = Mood.shocked
-        self.eye_l.set_scale(1)
         self.mouth.mood = MouthMood.neutral
 
+        self.eye_r.set_scale(1)
+        self.eye_l.set_scale(1)
+
     def _set_neutral(self) -> None:
-        # self.wink_left = False
-        # self.wink_right = False
         self.eyebrow_angle = 0
 
         self.eye_r.mood = Mood.neutral
+        self.eye_l.mood = Mood.neutral
         self.mouth.mood = MouthMood.neutral
 
     async def animate_smile(
@@ -296,6 +308,30 @@ class RoboFace:
 
             # Draw only if smile_height changed
             if updated:
+                self._draw_frame()
+
+            await asyncio.sleep(1 / fps)
+
+    async def animate_happy(
+        self,
+        duration: float = 1.0,
+        fps: int = 30,
+        reverse: bool = False,
+    ) -> None:
+        self.mood = Mood.happy
+        self._set_happy()
+        frames_n = int(duration * fps)
+        self.smile_height = 0
+
+        for f in range(frames_n):
+            # The percentage we show 0-1. For reverse decreases with each frame.
+            k = (frames_n - f) / frames_n if reverse else f / frames_n
+            updated = self.mouth.set_scale(k)
+            updated_eye_r = self.eye_r.set_open(1 - k)
+            updated_eye_l = self.eye_l.set_open(1 - k)
+
+            # Draw only if smile_height changed
+            if updated or updated_eye_r or updated_eye_l:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
@@ -353,6 +389,8 @@ class RoboFace:
                 await self.animate_angry(duration=duration, fps=fps, reverse=True)
             case Mood.shocked:
                 await self.animate_shocked(duration=duration, fps=fps, reverse=True)
+            case Mood.happy:
+                await self.animate_happy(duration=duration, fps=fps, reverse=True)
         self.mood = Mood.neutral
         self._set_neutral()
 

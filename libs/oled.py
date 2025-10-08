@@ -203,16 +203,36 @@ class SSD1306:
                 x -= 1
                 d += 2 * (y - x) + 1
 
-    def filled_circle(self, cx: int, cy: int, r: int, color: int = 1) -> None:
+    def filled_circle(
+        self,
+        cx: int,
+        cy: int,
+        r: int,
+        color: int = 1,
+        shrink: float = 1.0,
+    ) -> None:
+        # shrink: 1 (full circle), 0 (horizontal line), in-between: ellipse squashed vertically
+        if shrink == 0.0:
+            # Draw only a horizontal line of length 2r+1
+            self.hline(cx - r, cy, 2 * r + 1, color)
+            return
+
         x = r
         y = 0
         d = 1 - r
+
         while x >= y:
-            self.vline(cx + x, cy - y, 2 * y + 1, color)
-            self.vline(cx - x, cy - y, 2 * y + 1, color)
-            self.vline(cx + y, cy - x, 2 * x + 1, color)
-            self.vline(cx - y, cy - x, 2 * x + 1, color)
+            # Calculate vertical shrink
+            y_shrunk = int(y * shrink)
+            x_shrunk = int(x * shrink)
+
+            # Draw vertical lines, but shrink their height
+            self.vline(cx + x, cy - y_shrunk, 2 * y_shrunk + 1, color)
+            self.vline(cx - x, cy - y_shrunk, 2 * y_shrunk + 1, color)
+            self.vline(cx + y, cy - x_shrunk, 2 * x_shrunk + 1, color)
+            self.vline(cx - y, cy - x_shrunk, 2 * x_shrunk + 1, color)
             y += 1
+
             if d <= 0:
                 d += 2 * y + 1
             else:
