@@ -6,12 +6,6 @@ from typing import Tuple
 from libs.oled import SSD1306
 
 
-class MouthMood(Enum):
-    neutral = 1
-    smile = 2
-    angry = 3
-
-
 class Mood(Enum):
     neutral = 1
     angry = 2
@@ -28,7 +22,7 @@ class Mouth:
         height: int,  # in pixels
         width: int,  # in pixels
         enable: bool = True,
-        mood: MouthMood = MouthMood.neutral,
+        mood: Mood = Mood.neutral,
     ) -> None:
         self.cx = cx
         self.cy = cy
@@ -71,25 +65,25 @@ class Mouth:
 
     def get_points(
         self,
-        mood: MouthMood | None = None,
+        mood: Mood | None = None,
     ) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
         if mood is not None:
             self.mood = mood
 
         match self.mood:
-            case MouthMood.smile:
-                print("smile")
+            case Mood.smile | Mood.happy:
+                print("smile|happy")
                 p0 = (self.lx, self.cy - self.dy)
                 p1 = (self.cx, self.cy + self.dy)
                 p2 = (self.rx, self.cy - self.dy)
 
-            case MouthMood.angry:
+            case Mood.angry:
                 print("negative")
                 p0 = (self.lx, self.cy + self.dy)
                 p1 = (self.cx, self.cy - self.dy)
                 p2 = (self.rx, self.cy + self.dy)
 
-            case MouthMood.neutral | _:
+            case Mood.neutral | _:
                 print("neutral")
                 p0 = (self.lx, self.cy)
                 p1 = (self.cx, self.cy)
@@ -179,6 +173,72 @@ class Eye:
         return self.cx, self.cy, radius, open_percent
 
 
+class Eyebrow:
+    def __init__(
+        self,
+        x: int,  # in pixels
+        y: int,  # in pixels
+        length: int,  # in pixels
+        angle: float,
+        enable: bool = True,
+        right: bool = True,
+    ):
+        self.x = x
+        self.y = y
+        self.length = length
+        self.angle = angle
+        self.enable = enable
+        self.right = right
+        self.mood = Mood.neutral
+        self.do = 1
+
+    @classmethod
+    def from_face_radius(
+        cls,
+        face_cx: int,
+        face_cy: int,
+        face_radius: int,
+        scale_offset_x: float = 0.40,
+        scale_offset_y: float = 0.55,
+        scale_length: float = 0.6,
+        angle: float = math.pi / 6,
+        right: bool = True,
+        enable: bool = True,
+    ):
+        k = 1 if right else -1
+        length = int(face_radius * scale_length)
+        return cls(
+            x=face_cx + k * (int(face_radius * scale_offset_x - length / 2)),
+            y=face_cy - int(face_radius * scale_offset_y),
+            length=length,
+            angle=angle,
+            enable=enable,
+            right=right,
+        )
+
+    def set_scale(self, scale: float = 0) -> bool:
+        if scale == self.do:
+            return False
+
+        self.do = scale
+        return True
+
+    def get_points(self, mood: Mood | None = None) -> Tuple | None:
+        if mood:
+            self.mood = mood
+
+        match self.mood:
+            # Mood. |
+            case Mood.angry:
+                k = 1 if self.right else -1
+                dx = int(math.cos(self.angle) * self.length)
+                dy = int(math.sin(self.angle) * self.length)
+                result = (self.x, self.y, self.x + dx * k, self.y - dy)
+            case _:
+                result = None
+        return result
+
+
 class RoboFace:
     def __init__(
         self,
@@ -194,11 +254,9 @@ class RoboFace:
         self.color = color
         self.animation_duration = animation_duration
         self.mood = Mood.neutral
-
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
 
-        # Calc eys sizes
-
+        # Eye
         self.eye_l = Eye.from_face_radius(
             face_cx=self.cx,
             face_cy=self.cy,
@@ -212,25 +270,34 @@ class RoboFace:
             face_radius=self.radius,
         )
 
-        self.eye_offset_x = int(self.radius * 0.45)
-        self.eye_offset_y = int(self.radius * 0.35)
-        self.eye_radius = self.radius // 6
+        # Eyebrow
+        self.eyebrow_l = Eyebrow.from_face_radius(
+            face_cx=self.cx,
+            face_cy=self.cy,
+            face_radius=self.radius,
+            right=False,
+        )
+        self.eyebrow_r = Eyebrow.from_face_radius(
+            face_cx=self.cx,
+            face_cy=self.cy,
+            face_radius=self.radius,
+        )
 
-        # Calc mouth sizes
+        # mouth
         self.mouth = Mouth.from_face_radius(self.cx, self.cy, self.radius)
 
-        self.smile_width = int(self.radius * 0.8)
-        self.smile_height = int(self.radius * 0.2)
-        self.mouth_y = self.cy + int(self.radius * 0.35)
+        # self.mouth_type = MouthMood.neutral
+        # self.smile_width = int(self.radius * 0.8)
+        # self.smile_height = int(self.radius * 0.2)
+        # self.mouth_y = self.cy + int(self.radius * 0.35)
 
         # Calc eyebrow sizes
-        self.eyebrow_angle = 0
-        self.eyebrow_width = int(self.radius * 0.5)
+        # self.eyebrow_angle = 0
+        # self.eyebrow_width = int(self.radius * 0.5)
 
         # Init face state
-        self.wink_left = False
-        self.wink_right = False
-        self.mouth_type = MouthMood.neutral
+        # self.wink_left = False
+        # self.wink_right = False
 
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
@@ -252,16 +319,20 @@ class RoboFace:
     def _set_smile(self) -> None:
         self.eyebrow_angle = 0
 
-        self.eye_r.mood = Mood.neutral
-        self.eye_l.mood = Mood.neutral
-        self.mouth.mood = MouthMood.smile
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+        self.mouth.mood = self.mood
 
     def _set_happy(self) -> None:
         self.eyebrow_angle = 0
 
-        self.eye_r.mood = Mood.happy
-        self.eye_l.mood = Mood.happy
-        self.mouth.mood = MouthMood.smile
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+        self.mouth.mood = self.mood
 
         self.eye_r.set_open(0)
         self.eye_l.set_open(0)
@@ -269,16 +340,20 @@ class RoboFace:
     def _set_angry(self) -> None:
         self.eyebrow_angle = math.pi / 8
 
-        self.eye_r.mood = Mood.neutral
-        self.eye_l.mood = Mood.neutral
-        self.mouth.mood = MouthMood.angry
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+        self.mouth.mood = self.mood
 
     def _set_shocked(self) -> None:
         self.eyebrow_angle = 0
 
-        self.eye_r.mood = Mood.shocked
-        self.eye_l.mood = Mood.shocked
-        self.mouth.mood = MouthMood.neutral
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+        self.mouth.mood = self.mood
 
         self.eye_r.set_scale(1)
         self.eye_l.set_scale(1)
@@ -286,9 +361,11 @@ class RoboFace:
     def _set_neutral(self) -> None:
         self.eyebrow_angle = 0
 
-        self.eye_r.mood = Mood.neutral
-        self.eye_l.mood = Mood.neutral
-        self.mouth.mood = MouthMood.neutral
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+        self.mouth.mood = self.mood
 
     async def animate_smile(
         self,
@@ -403,43 +480,30 @@ class RoboFace:
         self.mood = Mood.neutral
         self._set_neutral()
 
-    def _draw_frame(self, scale: int = 1) -> None:
-        oled = self.oled
-        oled.fill(0)
-
+    def _draw_frame(self) -> None:
+        self.oled.fill(0)
         if self.border:
             self.oled.circle(self.cx, self.cy, self.radius, 1)
 
         # Eye
         eye_l_x, eye_l_y, eye_l_r, eye_l_open = self.eye_l.get_points()
-        oled.filled_circle(eye_l_x, eye_l_y, eye_l_r, self.color, eye_l_open)
+        self.oled.filled_circle(eye_l_x, eye_l_y, eye_l_r, self.color, eye_l_open)
         eye_r_x, eye_r_y, eye_r_r, eye_r_open = self.eye_r.get_points()
-        oled.filled_circle(eye_r_x, eye_r_y, eye_r_r, self.color, eye_r_open)
+        self.oled.filled_circle(eye_r_x, eye_r_y, eye_r_r, self.color, eye_r_open)
 
         # Eyebrows
-        if self.eyebrow_angle != 0.0:
-            dx = int(math.cos(self.eyebrow_angle) * self.eyebrow_width)
-            dy = int(math.sin(self.eyebrow_angle) * self.eyebrow_width)
+        eyebrow_l = self.eyebrow_l.get_points()
+        if eyebrow_l:
+            x10, y10, x11, y11 = eyebrow_l
+            self.oled.line(x10, y10, x11, y11, 1)
 
-            eyebrow_x_l = self.cx - self.eye_offset_x + int(self.radius * 0.3)
-            eyebrow_x_r = self.cx + self.eye_offset_x - int(self.radius * 0.3)
-            eyebrow_y = (
-                self.cy - self.eye_offset_y - self.eye_radius - int(self.radius * 0.1)
-            )
-            x0 = eyebrow_x_l
-            y0 = eyebrow_y
-            x1 = eyebrow_x_l - dx
-            y1 = eyebrow_y - dy
-            oled.line(x0, y0, x1, y1, 1)
-
-            x0 = eyebrow_x_r
-            y0 = eyebrow_y
-            x1 = eyebrow_x_r + dx
-            y1 = eyebrow_y - dy
-            oled.line(x0, y0, x1, y1, 1)
+        eyebrow_r = self.eyebrow_r.get_points()
+        if eyebrow_r:
+            x0, y0, x1, y1 = eyebrow_r
+            self.oled.line(x0, y0, x1, y1, 1)
 
         # Mouth
         p0, p1, p2 = self.mouth.get_points()
-        oled.quad_bezier(p0, p1, p2)  # offset_y=self.mouth.height // 4)
+        self.oled.quad_bezier(p0, p1, p2)  # offset_y=self.mouth.height // 4)
 
-        oled.show()
+        self.oled.show()
