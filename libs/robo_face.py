@@ -2,6 +2,7 @@ import math
 import asyncio
 from enum import Enum
 from typing import Tuple
+from dataclasses import dataclass
 
 from libs.oled import SSD1306
 
@@ -92,6 +93,13 @@ class Mouth:
         return (p0, p1, p2)
 
 
+@dataclass
+class EyeGeometry:
+    x: int
+    y: int
+    radius: int
+
+
 class Eye:
     def __init__(
         self,
@@ -152,7 +160,7 @@ class Eye:
         self.do = do
         return True
 
-    def get_points(self, mood: Mood | None = None) -> Tuple[int, int, int, float]:
+    def get_points(self, mood: Mood | None = None) -> Tuple[EyeGeometry, float]:
         if mood is not None:
             self.mood = mood
 
@@ -170,7 +178,7 @@ class Eye:
                 radius = self.radius
                 open_percent = 1.0
 
-        return self.cx, self.cy, radius, open_percent
+        return EyeGeometry(self.cx, self.cy, radius), open_percent
 
 
 class Eyebrow:
@@ -190,7 +198,8 @@ class Eyebrow:
         self.enable = enable
         self.right = right
         self.mood = Mood.neutral
-        self.do = 1
+        self.dx = int(math.cos(self.angle) * self.length)
+        self.dy = int(math.sin(self.angle) * self.length)
 
     @classmethod
     def from_face_radius(
@@ -217,10 +226,14 @@ class Eyebrow:
         )
 
     def set_scale(self, scale: float = 0) -> bool:
-        if scale == self.do:
+        dx = int(math.cos(self.angle) * self.length * scale)
+        dy = int(math.sin(self.angle) * self.length * scale)
+
+        if dx == self.dx and dy == self.dy:
             return False
 
-        self.do = scale
+        self.dx = dx
+        self.dy = dy
         return True
 
     def get_points(self, mood: Mood | None = None) -> Tuple | None:
@@ -228,12 +241,11 @@ class Eyebrow:
             self.mood = mood
 
         match self.mood:
-            # Mood. |
             case Mood.angry:
                 k = 1 if self.right else -1
-                dx = int(math.cos(self.angle) * self.length)
-                dy = int(math.sin(self.angle) * self.length)
-                result = (self.x, self.y, self.x + dx * k, self.y - dy)
+                # dx = int(math.cos(self.angle) * self.length)
+                # dy = int(math.sin(self.angle) * self.length)
+                result = (self.x, self.y, self.x + self.dx * k, self.y - self.dy)
             case _:
                 result = None
         return result
@@ -286,19 +298,6 @@ class RoboFace:
         # mouth
         self.mouth = Mouth.from_face_radius(self.cx, self.cy, self.radius)
 
-        # self.mouth_type = MouthMood.neutral
-        # self.smile_width = int(self.radius * 0.8)
-        # self.smile_height = int(self.radius * 0.2)
-        # self.mouth_y = self.cy + int(self.radius * 0.35)
-
-        # Calc eyebrow sizes
-        # self.eyebrow_angle = 0
-        # self.eyebrow_width = int(self.radius * 0.5)
-
-        # Init face state
-        # self.wink_left = False
-        # self.wink_right = False
-
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
         self.mouth.set_scale(1.0)  # set full height for static
@@ -345,6 +344,9 @@ class RoboFace:
         self.eye_r.mood = self.mood
         self.eye_l.mood = self.mood
         self.mouth.mood = self.mood
+
+        self.eyebrow_r.set_scale(1)
+        self.eyebrow_l.set_scale(1)
 
     def _set_shocked(self) -> None:
         self.eyebrow_angle = 0
@@ -423,18 +425,17 @@ class RoboFace:
     ) -> None:
         self.mood = Mood.angry
         self._set_angry()
-        eyebrow_width = self.eyebrow_width
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
         for f in range(frames_n):
             k = (frames_n - f) / frames_n if reverse else f / frames_n
-            tmp_eyebrow = int(eyebrow_width * k)
-            updated = self.mouth.set_scale(k)
+            updated_m = self.mouth.set_scale(k)
+            updated_e_l = self.eyebrow_l.set_scale(k)
+            updated_e_r = self.eyebrow_r.set_scale(k)
 
             # Draw only if smile_height changed
-            if updated or tmp_eyebrow != self.eyebrow_width:
-                self.eyebrow_width = tmp_eyebrow
+            if updated_m or updated_e_l or updated_e_r:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
@@ -486,10 +487,10 @@ class RoboFace:
             self.oled.circle(self.cx, self.cy, self.radius, 1)
 
         # Eye
-        eye_l_x, eye_l_y, eye_l_r, eye_l_open = self.eye_l.get_points()
-        self.oled.filled_circle(eye_l_x, eye_l_y, eye_l_r, self.color, eye_l_open)
-        eye_r_x, eye_r_y, eye_r_r, eye_r_open = self.eye_r.get_points()
-        self.oled.filled_circle(eye_r_x, eye_r_y, eye_r_r, self.color, eye_r_open)
+        eye_l, eye_l_open = self.eye_l.get_points()
+        self.oled.filled_circle(eye_l.x, eye_l.y, eye_l.radius, self.color, eye_l_open)
+        eye_r, eye_r_open = self.eye_r.get_points()
+        self.oled.filled_circle(eye_r.x, eye_r.y, eye_r.radius, self.color, eye_r_open)
 
         # Eyebrows
         eyebrow_l = self.eyebrow_l.get_points()
