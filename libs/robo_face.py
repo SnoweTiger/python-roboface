@@ -15,6 +15,20 @@ class Mood(Enum):
     shocked = 5
 
 
+@dataclass
+class MouthGeometry:
+    left: Tuple[int, int]
+    center: Tuple[int, int]
+    right: Tuple[int, int]
+
+
+@dataclass
+class EyeGeometry:
+    x: int
+    y: int
+    radius: int
+
+
 class Mouth:
     def __init__(
         self,
@@ -33,9 +47,9 @@ class Mouth:
         self.mood = mood
 
         # calculate points
-        self.lx = self.cx - self.width // 2
-        self.rx = self.cx + self.width // 2
-        self.dy = self.height // 2
+        self._lx = self.cx - self.width // 2
+        self._rx = self.cx + self.width // 2
+        self._dy = self.height // 2
 
     @classmethod
     def from_face_radius(
@@ -58,46 +72,34 @@ class Mouth:
         """update smile height by scale.Return True if value changed, return False if last height equal current."""
         dy = int(scale * self.height / 2)
 
-        if dy == self.dy:
+        if self._dy == dy:
             return False
 
-        self.dy = dy
+        self._dy = dy
         return True
 
     def get_points(
         self,
         mood: Mood | None = None,
-    ) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
+    ) -> MouthGeometry:
         if mood is not None:
             self.mood = mood
 
         match self.mood:
             case Mood.smile | Mood.happy:
-                print("smile|happy")
-                p0 = (self.lx, self.cy - self.dy)
-                p1 = (self.cx, self.cy + self.dy)
-                p2 = (self.rx, self.cy - self.dy)
-
+                p0 = (self._lx, self.cy - self._dy)
+                p1 = (self.cx, self.cy + self._dy)
+                p2 = (self._rx, self.cy - self._dy)
             case Mood.angry:
-                print("negative")
-                p0 = (self.lx, self.cy + self.dy)
-                p1 = (self.cx, self.cy - self.dy)
-                p2 = (self.rx, self.cy + self.dy)
-
+                p0 = (self._lx, self.cy + self._dy)
+                p1 = (self.cx, self.cy - self._dy)
+                p2 = (self._rx, self.cy + self._dy)
             case Mood.neutral | _:
-                print("neutral")
-                p0 = (self.lx, self.cy)
+                p0 = (self._lx, self.cy)
                 p1 = (self.cx, self.cy)
-                p2 = (self.rx, self.cy)
+                p2 = (self._rx, self.cy)
 
-        return (p0, p1, p2)
-
-
-@dataclass
-class EyeGeometry:
-    x: int
-    y: int
-    radius: int
+        return MouthGeometry(p0, p1, p2)
 
 
 class Eye:
@@ -504,7 +506,7 @@ class RoboFace:
             self.oled.line(x0, y0, x1, y1, 1)
 
         # Mouth
-        p0, p1, p2 = self.mouth.get_points()
-        self.oled.quad_bezier(p0, p1, p2)  # offset_y=self.mouth.height // 4)
+        mouth = self.mouth.get_points()
+        self.oled.quad_bezier(mouth.left, mouth.center, mouth.right)
 
         self.oled.show()
