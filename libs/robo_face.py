@@ -117,8 +117,9 @@ class Eye:
         self.enable = enable
         self.get_shocked = get_shocked
         self.mood = Mood.neutral
-        self.dy = 0
-        self.do = 1
+
+        self._scale = 0
+        self._open = 1
 
     @classmethod
     def from_face_radius(
@@ -144,22 +145,20 @@ class Eye:
 
     def set_scale(self, scale: float = 1.0) -> bool:
         """update eye height by scale. Return True if value changed, return False if last height equal current."""
-        dy = int(scale * self.radius)
+        scaled_radius = int(scale * self.radius)
 
-        if dy == self.dy:
+        if scaled_radius == self._scale:
             return False
 
-        self.dy = dy
+        self._scale = scaled_radius
         return True
 
     def set_open(self, open: float = 1.0) -> bool:
         """update eye height by scale. Return True if value changed, return False if last height equal current."""
-        do = open
-
-        if do == self.do:
+        if self._open == open:
             return False
 
-        self.do = do
+        self._open = open
         return True
 
     def get_points(self, mood: Mood | None = None) -> Tuple[EyeGeometry, float]:
@@ -168,14 +167,14 @@ class Eye:
 
         match self.mood:
             case Mood.shocked if self.get_shocked:
-                radius = self.radius + self.dy
+                radius = self.radius + self._scale
                 open_percent = 1
             case Mood.smile:
                 radius = self.radius
                 open_percent = 1
             case Mood.happy:
                 radius = self.radius
-                open_percent = self.do
+                open_percent = self._open
             case Mood.neutral | _:
                 radius = self.radius
                 open_percent = 1.0
