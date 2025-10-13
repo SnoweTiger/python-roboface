@@ -29,6 +29,14 @@ class EyeGeometry:
     radius: int
 
 
+@dataclass
+class EyebrowGeometry:
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
 class Mouth:
     def __init__(
         self,
@@ -199,6 +207,7 @@ class Eyebrow:
         self.enable = enable
         self.right = right
         self.mood = Mood.neutral
+
         self.dx = int(math.cos(self.angle) * self.length)
         self.dy = int(math.sin(self.angle) * self.length)
 
@@ -237,16 +246,19 @@ class Eyebrow:
         self.dy = dy
         return True
 
-    def get_points(self, mood: Mood | None = None) -> Tuple | None:
+    def get_points(self, mood: Mood | None = None) -> EyebrowGeometry | None:
         if mood:
             self.mood = mood
 
         match self.mood:
             case Mood.angry:
                 k = 1 if self.right else -1
-                # dx = int(math.cos(self.angle) * self.length)
-                # dy = int(math.sin(self.angle) * self.length)
-                result = (self.x, self.y, self.x + self.dx * k, self.y - self.dy)
+                result = EyebrowGeometry(
+                    self.x,
+                    self.y,
+                    self.x + self.dx * k,
+                    self.y - self.dy,
+                )
             case _:
                 result = None
         return result
@@ -496,13 +508,10 @@ class RoboFace:
         # Eyebrows
         eyebrow_l = self.eyebrow_l.get_points()
         if eyebrow_l:
-            x10, y10, x11, y11 = eyebrow_l
-            self.oled.line(x10, y10, x11, y11, 1)
-
+            self.oled.line(eyebrow_l.x1, eyebrow_l.y1, eyebrow_l.x2, eyebrow_l.y2, 1)
         eyebrow_r = self.eyebrow_r.get_points()
         if eyebrow_r:
-            x0, y0, x1, y1 = eyebrow_r
-            self.oled.line(x0, y0, x1, y1, 1)
+            self.oled.line(eyebrow_r.x1, eyebrow_r.y1, eyebrow_r.x2, eyebrow_r.y2, 1)
 
         # Mouth
         mouth = self.mouth.get_points()
