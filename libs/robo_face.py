@@ -189,6 +189,23 @@ class Eye:
 
         return EyeGeometry(self.cx, self.cy, radius), open_percent
 
+    def draw(self, display: SSD1306) -> None:
+        match self.mood:
+            case Mood.shocked if self.get_shocked:
+                radius = self.radius + self._scale
+                open_percent = 1
+            case Mood.smile:
+                radius = self.radius
+                open_percent = 1
+            case Mood.happy:
+                radius = self.radius
+                open_percent = self._open
+            case Mood.neutral | _:
+                radius = self.radius
+                open_percent = 1.0
+
+        display.filled_circle(self.cx, self.cy, radius, 1, open_percent)
+
 
 class Eyebrow:
     def __init__(
@@ -500,10 +517,8 @@ class RoboFace:
             self.oled.circle(self.cx, self.cy, self.radius, 1)
 
         # Eye
-        eye_l, eye_l_open = self.eye_l.get_points()
-        self.oled.filled_circle(eye_l.x, eye_l.y, eye_l.radius, self.color, eye_l_open)
-        eye_r, eye_r_open = self.eye_r.get_points()
-        self.oled.filled_circle(eye_r.x, eye_r.y, eye_r.radius, self.color, eye_r_open)
+        self.eye_l.draw(self.oled)
+        self.eye_r.draw(self.oled)
 
         # Eyebrows
         eyebrow_l = self.eyebrow_l.get_points()
