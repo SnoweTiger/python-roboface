@@ -11,9 +11,9 @@ Just copy libs folder to your DevBoard FS and import RoboFace and SSD1306.
 For example you can see main.py or just run it.
 
 ## Roadmap
-- [ ] Add eyelids for more realistic winking
+- [x] Add eyelids for more realistic winking
 - [ ] Add idle eye winking or moving
-- [-] Add more face styles and style switch
+- [ ] Add more face styles and style switch
     - [ ] Ghost (only big eyes)
     - [ ] Robo (big square eyes)
     - [ ] Custom 

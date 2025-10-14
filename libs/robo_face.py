@@ -118,6 +118,7 @@ class Eye:
         radius: int,  # in pixels
         enable: bool = True,
         get_shocked: bool = True,
+        color: int = 1,
     ):
         self.cx = cx
         self.cy = cy
@@ -125,9 +126,11 @@ class Eye:
         self.enable = enable
         self.get_shocked = get_shocked
         self.mood = Mood.neutral
+        self._color = color
 
         self._scale = 0
-        self._open = 1
+        self._ellipsis = 1.0
+        self._eyelid_height = 0
 
     @classmethod
     def from_face_radius(
@@ -161,50 +164,78 @@ class Eye:
         self._scale = scaled_radius
         return True
 
-    def set_open(self, open: float = 1.0) -> bool:
+    def set_ellipsis(self, ellipsis: float = 1.0) -> bool:
         """update eye height by scale. Return True if value changed, return False if last height equal current."""
-        if self._open == open:
+        if self._ellipsis == ellipsis:
             return False
 
-        self._open = open
+        self._ellipsis = ellipsis
         return True
 
-    def get_points(self, mood: Mood | None = None) -> Tuple[EyeGeometry, float]:
-        if mood is not None:
-            self.mood = mood
+    def set_close(self, close: float = 0.0) -> bool:
+        eyelid_height = math.ceil(close * (self.radius))
 
-        match self.mood:
-            case Mood.shocked if self.get_shocked:
-                radius = self.radius + self._scale
-                open_percent = 1
-            case Mood.smile:
-                radius = self.radius
-                open_percent = 1
-            case Mood.happy:
-                radius = self.radius
-                open_percent = self._open
-            case Mood.neutral | _:
-                radius = self.radius
-                open_percent = 1.0
+        if self._eyelid_height == eyelid_height:
+            return False
 
-        return EyeGeometry(self.cx, self.cy, radius), open_percent
+        self._eyelid_height = eyelid_height
+        return True
 
     def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.shocked if self.get_shocked:
                 radius = self.radius + self._scale
-                open_percent = 1
+                eyelid_top_height = 0
+                eyelid_bot_height = 0
+                ellipsis = 1.0
+
             case Mood.smile:
                 radius = self.radius
-                open_percent = 1
+                eyelid_top_height = 0
+                eyelid_bot_height = 0
+                ellipsis = 1.0
+
             case Mood.happy:
                 radius = self.radius
-                open_percent = self._open
+
+                ellipsis = self._ellipsis
+                eyelid_top_height = self._eyelid_height
+                eyelid_bot_height = self._eyelid_height * -1
+
             case Mood.neutral | _:
                 radius = self.radius
-                open_percent = 1.0
+                eyelid_top_height = 0
+                eyelid_bot_height = 0
+                ellipsis = 1.0
 
-        display.filled_circle(self.cx, self.cy, radius, 1, open_percent)
+        # draw eye
+
+        # print(f"{open_percent=}")
+
+        display.filled_circle(
+            self.cx,
+            self.cy,
+            radius,
+            1,
+            ellipsis,
+        )
+
+        # draw eyelid
+        eyelid_bot_width = radius * 2 + 1
+        display.filled_rectangle(
+            self.cx - radius,
+            self.cy - radius,
+            eyelid_bot_width,
+            eyelid_top_height,
+            0,
+        )
+        display.filled_rectangle(
+            self.cx - radius,
+            self.cy + radius,
+            eyelid_bot_width,
+            eyelid_bot_height,
+            0,
+        )
 
 
 class Eyebrow:
@@ -363,8 +394,10 @@ class RoboFace:
         self.eye_l.mood = self.mood
         self.mouth.mood = self.mood
 
-        self.eye_r.set_open(0)
-        self.eye_l.set_open(0)
+        self.eye_l.set_close(1)
+        # self.eye_r.set_close(1)
+        # self.eye_l.set_ellipsis(0)
+        self.eye_r.set_ellipsis(0)
 
     def _set_angry(self) -> None:
         self.eyebrow_angle = math.pi / 8
@@ -437,12 +470,16 @@ class RoboFace:
         for f in range(frames_n):
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
-            updated = self.mouth.set_scale(k)
-            updated_eye_r = self.eye_r.set_open(1 - k)
-            updated_eye_l = self.eye_l.set_open(1 - k)
+
+            updated_mouth = self.mouth.set_scale(k)
+
+            updated_eye_left = self.eye_l.set_close(k)
+            # updated_eye_right = self.eye_r.set_close(k)
+            # updated_eye_left = self.eye_l.set_close(k)
+            updated_eye_right = self.eye_r.set_ellipsis(1 - k)
 
             # Draw only if smile_height changed
-            if updated or updated_eye_r or updated_eye_l:
+            if updated_mouth or updated_eye_left or updated_eye_right:
                 self._draw_frame()
 
             await asyncio.sleep(1 / fps)
