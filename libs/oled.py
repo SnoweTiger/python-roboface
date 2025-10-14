@@ -235,3 +235,20 @@ class SSD1306:
             else:
                 x -= 1
                 d += 2 * (y - x) + 1
+
+    def filled_rectangle(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        color: int = 1,
+    ) -> None:
+        if height < 0:
+            for row in range(abs(height)):
+                self.hline(x, y - row, width, color)
+        elif height > 0:
+            for row in range(height):
+                self.hline(x, y + row, width, color)
+        else:
+            return
