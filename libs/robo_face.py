@@ -1,7 +1,6 @@
 import math
 import asyncio
 from enum import Enum
-from typing import Tuple
 from dataclasses import dataclass
 
 from libs.oled import SSD1306
@@ -13,20 +12,6 @@ class Mood(Enum):
     smile = 3
     happy = 4
     shocked = 5
-
-
-@dataclass
-class MouthGeometry:
-    left: Tuple[int, int]
-    center: Tuple[int, int]
-    right: Tuple[int, int]
-
-
-@dataclass
-class EyeGeometry:
-    x: int
-    y: int
-    radius: int
 
 
 @dataclass
@@ -86,13 +71,7 @@ class Mouth:
         self._dy = dy
         return True
 
-    def get_points(
-        self,
-        mood: Mood | None = None,
-    ) -> MouthGeometry:
-        if mood is not None:
-            self.mood = mood
-
+    def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.smile | Mood.happy:
                 p0 = (self._lx, self.cy - self._dy)
@@ -107,7 +86,7 @@ class Mouth:
                 p1 = (self.cx, self.cy)
                 p2 = (self._rx, self.cy)
 
-        return MouthGeometry(p0, p1, p2)
+        display.quad_bezier(p0, p1, p2)
 
 
 class Eye:
@@ -566,7 +545,6 @@ class RoboFace:
             self.oled.line(eyebrow_r.x1, eyebrow_r.y1, eyebrow_r.x2, eyebrow_r.y2, 1)
 
         # Mouth
-        mouth = self.mouth.get_points()
-        self.oled.quad_bezier(mouth.left, mouth.center, mouth.right)
+        self.mouth.draw(self.oled)
 
         self.oled.show()
