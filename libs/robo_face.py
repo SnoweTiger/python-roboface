@@ -273,22 +273,21 @@ class Eyebrow:
         self.dy = dy
         return True
 
-    def get_points(self, mood: Mood | None = None) -> EyebrowGeometry | None:
-        if mood:
-            self.mood = mood
-
+    def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.angry:
                 k = 1 if self.right else -1
-                result = EyebrowGeometry(
+                eyebrow = EyebrowGeometry(
                     self.x,
                     self.y,
                     self.x + self.dx * k,
                     self.y - self.dy,
                 )
             case _:
-                result = None
-        return result
+                eyebrow = None
+
+        if eyebrow:
+            display.line(eyebrow.x1, eyebrow.y1, eyebrow.x2, eyebrow.y2, 1)
 
 
 class RoboFace:
@@ -537,12 +536,8 @@ class RoboFace:
         self.eye_r.draw(self.oled)
 
         # Eyebrows
-        eyebrow_l = self.eyebrow_l.get_points()
-        if eyebrow_l:
-            self.oled.line(eyebrow_l.x1, eyebrow_l.y1, eyebrow_l.x2, eyebrow_l.y2, 1)
-        eyebrow_r = self.eyebrow_r.get_points()
-        if eyebrow_r:
-            self.oled.line(eyebrow_r.x1, eyebrow_r.y1, eyebrow_r.x2, eyebrow_r.y2, 1)
+        self.eyebrow_l.draw(self.oled)
+        self.eyebrow_r.draw(self.oled)
 
         # Mouth
         self.mouth.draw(self.oled)
