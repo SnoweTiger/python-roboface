@@ -95,18 +95,16 @@ class Eye:
         cx: int,  # in pixels
         cy: int,  # in pixels
         radius: int,  # in pixels
-        enable: bool = True,
         get_shocked: bool = True,
         color: int = 1,
     ):
         self.cx = cx
         self.cy = cy
         self.radius = radius
-        self.enable = enable
-        self.get_shocked = get_shocked
         self.mood = Mood.neutral
-        self._color = color
 
+        self._get_shocked = get_shocked
+        self._color = color
         self._scale = 0
         self._ellipsis = 1.0
         self._eyelid_height = 0
@@ -121,7 +119,6 @@ class Eye:
         scale_offset_y: float = 0.35,
         scale_radius: float = 0.17,
         right: bool = True,
-        enable: bool = True,
         get_shocked: bool = True,
     ):
         k = 1 if right else -1
@@ -129,7 +126,6 @@ class Eye:
             cx=face_cx + k * int(face_radius * scale_offset_x),
             cy=face_cy - int(face_radius * scale_offset_y),
             radius=int(face_radius * scale_radius),
-            enable=enable,
             get_shocked=get_shocked,
         )
 
@@ -162,7 +158,7 @@ class Eye:
 
     def draw(self, display: SSD1306) -> None:
         match self.mood:
-            case Mood.shocked if self.get_shocked:
+            case Mood.shocked if self._get_shocked:
                 radius = self.radius + self._scale
                 eyelid_top_height = 0
                 eyelid_bot_height = 0
@@ -176,7 +172,6 @@ class Eye:
 
             case Mood.happy:
                 radius = self.radius
-
                 ellipsis = self._ellipsis
                 eyelid_top_height = self._eyelid_height
                 eyelid_bot_height = self._eyelid_height * -1
@@ -188,16 +183,7 @@ class Eye:
                 ellipsis = 1.0
 
         # draw eye
-
-        # print(f"{open_percent=}")
-
-        display.filled_circle(
-            self.cx,
-            self.cy,
-            radius,
-            1,
-            ellipsis,
-        )
+        display.filled_circle(self.cx, self.cy, radius, 1, ellipsis)
 
         # draw eyelid
         eyelid_bot_width = radius * 2 + 1
