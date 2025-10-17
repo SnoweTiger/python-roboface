@@ -89,7 +89,7 @@ class Mouth:
         display.quad_bezier(p0, p1, p2)
 
 
-class Eye:
+class SmileEye:
     def __init__(
         self,
         cx: int,  # in pixels
@@ -97,110 +97,118 @@ class Eye:
         radius: int,  # in pixels
         get_shocked: bool = True,
         color: int = 1,
+        mood: Mood = Mood.neutral,
+        has_eye_lid: bool = False,
     ):
-        self.cx = cx
-        self.cy = cy
-        self.radius = radius
-        self.mood = Mood.neutral
-
+        self._cx = cx
+        self._cy = cy
+        self._radius = radius
+        self._mood = mood
         self._get_shocked = get_shocked
         self._color = color
         self._scale = 0
+
+        self._radius_current = self._radius
+
+        self._has_eye_lid = has_eye_lid
+
         self._ellipsis = 1.0
         self._eyelid_height = 0
 
     @classmethod
-    def from_face_radius(
+    def from_face(
         cls,
-        face_cx: int,
-        face_cy: int,
-        face_radius: int,
+        face,
         scale_offset_x: float = 0.45,
         scale_offset_y: float = 0.35,
         scale_radius: float = 0.17,
         right: bool = True,
         get_shocked: bool = True,
+        has_eye_lid: bool = False,
     ):
         k = 1 if right else -1
         return cls(
-            cx=face_cx + k * int(face_radius * scale_offset_x),
-            cy=face_cy - int(face_radius * scale_offset_y),
-            radius=int(face_radius * scale_radius),
+            cx=face.cx + k * int(face.radius * scale_offset_x),
+            cy=face.cy - int(face.radius * scale_offset_y),
+            radius=int(face.radius * scale_radius),
             get_shocked=get_shocked,
+            has_eye_lid=has_eye_lid,
         )
 
-    def set_scale(self, scale: float = 1.0) -> bool:
-        """update eye height by scale. Return True if value changed, return False if last height equal current."""
-        scaled_radius = int(scale * self.radius)
+    def set(
+        self,
+        mood: Mood | None = None,
+        transition: float = 1.0,  # 0.0 -> 1.0, start -> finish
+    ) -> bool:
+        if mood:
+            self.mood = mood
 
-        if scaled_radius == self._scale:
-            return False
+        # set default
+        result = False
+        self._eyelid_height = 0
+        self._ellipsis = 1.0
+        self._radius_current = self._radius
 
-        self._scale = scaled_radius
-        return True
-
-    def set_ellipsis(self, ellipsis: float = 1.0) -> bool:
-        """update eye height by scale. Return True if value changed, return False if last height equal current."""
-        if self._ellipsis == ellipsis:
-            return False
-
-        self._ellipsis = ellipsis
-        return True
-
-    def set_close(self, close: float = 0.0) -> bool:
-        eyelid_height = math.ceil(close * (self.radius))
-
-        if self._eyelid_height == eyelid_height:
-            return False
-
-        self._eyelid_height = eyelid_height
-        return True
-
-    def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.shocked if self._get_shocked:
-                radius = self.radius + self._scale
-                eyelid_top_height = 0
-                eyelid_bot_height = 0
-                ellipsis = 1.0
+                new_radius = self._radius + int(transition * self._radius)
 
-            case Mood.smile:
-                radius = self.radius
-                eyelid_top_height = 0
-                eyelid_bot_height = 0
-                ellipsis = 1.0
+                if self._radius_current == new_radius:
+                    result = False
+                else:
+                    self._radius_current = new_radius
+                    result = True
 
             case Mood.happy:
-                radius = self.radius
-                ellipsis = self._ellipsis
-                eyelid_top_height = self._eyelid_height
-                eyelid_bot_height = self._eyelid_height * -1
+                if self._has_eye_lid:
+                    # eylids
+                    eyelid_height = math.ceil(transition * self._radius_current)
+                    if self._eyelid_height == eyelid_height:
+                        result = False
+                    else:
+                        self._eyelid_height = eyelid_height
+                        result = True
+                else:
+                    # elepsis
+                    if self._ellipsis == 1 - transition:
+                        result = False
+                    else:
+                        self._ellipsis = 1 - transition
+                        result = True
 
-            case Mood.neutral | _:
-                radius = self.radius
-                eyelid_top_height = 0
-                eyelid_bot_height = 0
-                ellipsis = 1.0
+            case Mood.neutral | Mood.smile | _:
+                # default
+                pass
 
+        return result
+
+    def draw(self, display: SSD1306) -> None:
         # draw eye
-        display.filled_circle(self.cx, self.cy, radius, 1, ellipsis)
+        display.filled_circle(
+            self._cx,
+            self._cy,
+            self._radius_current,
+            1,
+            self._ellipsis,
+        )
 
         # draw eyelid
-        eyelid_bot_width = radius * 2 + 1
-        display.filled_rectangle(
-            self.cx - radius,
-            self.cy - radius,
-            eyelid_bot_width,
-            eyelid_top_height,
-            0,
-        )
-        display.filled_rectangle(
-            self.cx - radius,
-            self.cy + radius,
-            eyelid_bot_width,
-            eyelid_bot_height,
-            0,
-        )
+        if self._eyelid_height != 0:
+            eyelid_bot_width = self._radius_current * 2 + 1
+            display.filled_rectangle(
+                self._cx - self._radius_current,
+                self._cy - self._radius_current,
+                eyelid_bot_width,
+                self._eyelid_height,
+                0,
+            )
+            display.filled_rectangle(
+                self._cx - self._radius_current,
+                self._cy + self._radius_current,
+                eyelid_bot_width,
+                self._eyelid_height * -1,
+                0,
+            )
 
 
 class Eyebrow:
@@ -294,18 +302,8 @@ class RoboFace:
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
 
         # Eye
-        self.eye_l = Eye.from_face_radius(
-            face_cx=self.cx,
-            face_cy=self.cy,
-            face_radius=self.radius,
-            right=False,
-            get_shocked=False,
-        )
-        self.eye_r = Eye.from_face_radius(
-            face_cx=self.cx,
-            face_cy=self.cy,
-            face_radius=self.radius,
-        )
+        self.eye_l = SmileEye.from_face(face=self, right=False, get_shocked=False)
+        self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)
 
         # Eyebrow
         self.eyebrow_l = Eyebrow.from_face_radius(
@@ -326,46 +324,18 @@ class RoboFace:
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
 
+        self.mouth.mood = self.mood
         self.eyebrow_r.mood = self.mood
         self.eyebrow_l.mood = self.mood
 
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-
-        self.mouth.mood = self.mood
-
-        match mood:
-            case Mood.smile:
-                self._set_smile()
-            case Mood.angry:
-                self._set_angry()
-            case Mood.happy:
-                self._set_happy()
-            case Mood.shocked:
-                self._set_shocked()
-            case Mood.neutral | _:
-                self._set_neutral()
-        self._draw_frame()
-
-    def _set_smile(self) -> None:
-        self.mouth.set_scale(1.0)  # set full height for static
-
-    def _set_happy(self) -> None:
-        self.eye_l.set_close(1)
-        # self.eye_r.set_close(1)
-        # self.eye_l.set_ellipsis(0)
-        self.eye_r.set_ellipsis(0)
-
-    def _set_angry(self) -> None:
+        self.mouth.set_scale(1.0)
         self.eyebrow_r.set_scale(1)
         self.eyebrow_l.set_scale(1)
 
-    def _set_shocked(self) -> None:
-        self.eye_r.set_scale(1)
-        self.eye_l.set_scale(1)
+        self.eye_l.set(self.mood, 1.0)
+        self.eye_r.set(self.mood, 1.0)
 
-    def _set_neutral(self) -> None:
-        pass
+        self._draw_frame()
 
     async def animate_smile(
         self,
@@ -374,7 +344,6 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.smile)
-        self.smile_height = 0
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
@@ -396,7 +365,6 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.happy)
-        self.smile_height = 0
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
@@ -405,11 +373,8 @@ class RoboFace:
             k = (frames_n - f) / frames_n if reverse else f / frames_n
 
             updated_mouth = self.mouth.set_scale(k)
-
-            updated_eye_left = self.eye_l.set_close(k)
-            # updated_eye_right = self.eye_r.set_close(k)
-            # updated_eye_left = self.eye_l.set_close(k)
-            updated_eye_right = self.eye_r.set_ellipsis(1 - k)
+            updated_eye_left = self.eye_l.set(self.mood, k)
+            updated_eye_right = self.eye_r.set(self.mood, k)
 
             # Draw only if smile_height changed
             if updated_mouth or updated_eye_left or updated_eye_right:
@@ -452,8 +417,8 @@ class RoboFace:
         for f in range(frames_n):
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
-            updated_l = self.eye_l.set_scale(k)
-            updated_r = self.eye_r.set_scale(k)
+            updated_l = self.eye_l.set(self.mood, k)
+            updated_r = self.eye_r.set(self.mood, k)
 
             # Draw only if smile_height changed
             if updated_l or updated_r:
@@ -485,14 +450,19 @@ class RoboFace:
             self.oled.circle(self.cx, self.cy, self.radius, 1)
 
         # Eye
-        self.eye_l.draw(self.oled)
-        self.eye_r.draw(self.oled)
+        if self.eye_l:
+            self.eye_l.draw(self.oled)
+        if self.eye_r:
+            self.eye_r.draw(self.oled)
 
         # Eyebrows
-        self.eyebrow_l.draw(self.oled)
-        self.eyebrow_r.draw(self.oled)
+        if self.eyebrow_l:
+            self.eyebrow_l.draw(self.oled)
+        if self.eyebrow_r:
+            self.eyebrow_r.draw(self.oled)
 
         # Mouth
-        self.mouth.draw(self.oled)
+        if self.mouth:
+            self.mouth.draw(self.oled)
 
         self.oled.show()
