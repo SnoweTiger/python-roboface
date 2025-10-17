@@ -211,77 +211,76 @@ class SmileEye:
             )
 
 
-class Eyebrow:
+class SmileEyebrow:
     def __init__(
         self,
-        x: int,  # in pixels
-        y: int,  # in pixels
+        cx: int,  # in pixels
+        cy: int,  # in pixels
         length: int,  # in pixels
-        angle: float,
-        enable: bool = True,
-        right: bool = True,
+        is_right: bool = False,
     ):
-        self.x = x
-        self.y = y
-        self.length = length
-        self.angle = angle
-        self.enable = enable
-        self.right = right
-        self.mood = Mood.neutral
+        self._cx = cx
+        self._cy = cy
+        self._length = length
+        self._is_right = is_right
+        self._mood = Mood.neutral
+        self._geom: EyebrowGeometry | None = None
 
-        self.dx = int(math.cos(self.angle) * self.length)
-        self.dy = int(math.sin(self.angle) * self.length)
+        # Calc
+        self._direction = 1 if self._is_right else -1
+        self._x = self._cx - self._direction * self._length // 2
+        self._y = self._cy
+        self._angle = math.pi / 6
+        self._dx = self._dy = 0
 
     @classmethod
-    def from_face_radius(
+    def from_face(
         cls,
-        face_cx: int,
-        face_cy: int,
-        face_radius: int,
+        face,
         scale_offset_x: float = 0.40,
         scale_offset_y: float = 0.55,
-        scale_length: float = 0.6,
-        angle: float = math.pi / 6,
-        right: bool = True,
-        enable: bool = True,
+        scale_length: float = 0.5,
+        is_right: bool = False,
     ):
-        k = 1 if right else -1
-        length = int(face_radius * scale_length)
+        k = 1 if is_right else -1
         return cls(
-            x=face_cx + k * (int(face_radius * scale_offset_x - length / 2)),
-            y=face_cy - int(face_radius * scale_offset_y),
-            length=length,
-            angle=angle,
-            enable=enable,
-            right=right,
+            cx=face.cx + k * int(face.radius * scale_offset_x),
+            cy=face.cy - int(face.radius * scale_offset_y),
+            length=int(face.radius * scale_length),
+            is_right=is_right,
         )
 
-    def set_scale(self, scale: float = 0) -> bool:
-        dx = int(math.cos(self.angle) * self.length * scale)
-        dy = int(math.sin(self.angle) * self.length * scale)
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
+        if mood:
+            self.mood = mood
 
-        if dx == self.dx and dy == self.dy:
-            return False
+        # set default
+        result = False
+        self._geom = None
 
-        self.dx = dx
-        self.dy = dy
-        return True
-
-    def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.angry:
-                k = 1 if self.right else -1
-                eyebrow = EyebrowGeometry(
-                    self.x,
-                    self.y,
-                    self.x + self.dx * k,
-                    self.y - self.dy,
-                )
-            case _:
-                eyebrow = None
+                dx = int(math.cos(self._angle) * self._length * transition)
+                dy = int(math.sin(self._angle) * self._length * transition)
 
-        if eyebrow:
-            display.line(eyebrow.x1, eyebrow.y1, eyebrow.x2, eyebrow.y2, 1)
+                if self._dx != dx or self._dy != dy:
+                    self._dx = dx
+                    self._dy = dy
+
+                    self._geom = EyebrowGeometry(
+                        self._x,
+                        self._y,
+                        self._x + self._dx * self._direction,
+                        self._y - self._dy,
+                    )
+                    result = True
+
+        return result
+
+    def draw(self, display: SSD1306) -> None:
+        if self._geom:
+            display.line(self._geom.x1, self._geom.y1, self._geom.x2, self._geom.y2, 1)
 
 
 class RoboFace:
@@ -306,17 +305,8 @@ class RoboFace:
         self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)
 
         # Eyebrow
-        self.eyebrow_l = Eyebrow.from_face_radius(
-            face_cx=self.cx,
-            face_cy=self.cy,
-            face_radius=self.radius,
-            right=False,
-        )
-        self.eyebrow_r = Eyebrow.from_face_radius(
-            face_cx=self.cx,
-            face_cy=self.cy,
-            face_radius=self.radius,
-        )
+        self.eyebrow_l = SmileEyebrow.from_face(face=self)
+        self.eyebrow_r = SmileEyebrow.from_face(face=self, is_right=True)
 
         # Mouth
         self.mouth = SmileMouth.from_face(face=self)
@@ -324,15 +314,11 @@ class RoboFace:
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
 
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-
-        self.eyebrow_r.set_scale(1)
-        self.eyebrow_l.set_scale(1)
-
         self.mouth.set(self.mood, 1.0)
         self.eye_l.set(self.mood, 1.0)
         self.eye_r.set(self.mood, 1.0)
+        self.eyebrow_r.set(self.mood, 1.0)
+        self.eyebrow_l.set(self.mood, 1.0)
 
         self._draw_frame()
 
@@ -355,10 +341,10 @@ class RoboFace:
                 False if not self.eye_r else self.eye_r.set(self.mood, k)
             )
             updated_eyebrow_left = (
-                False if not self.eyebrow_l else self.eyebrow_l.set_scale(k)
+                False if not self.eyebrow_l else self.eyebrow_l.set(self.mood, k)
             )
             updated_eyebrow_right = (
-                False if not self.eyebrow_r else self.eyebrow_r.set_scale(k)
+                False if not self.eyebrow_r else self.eyebrow_r.set(self.mood, k)
             )
 
             # Draw only if smile_height changed
