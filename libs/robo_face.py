@@ -22,71 +22,80 @@ class EyebrowGeometry:
     y2: int
 
 
-class Mouth:
+class SmileMouth:
     def __init__(
         self,
         cx: int,  # in pixels
         cy: int,  # in pixels
         height: int,  # in pixels
         width: int,  # in pixels
-        enable: bool = True,
         mood: Mood = Mood.neutral,
     ) -> None:
-        self.cx = cx
-        self.cy = cy
-        self.height = height
-        self.width = width
-        self.enable = enable
-        self.mood = mood
+        self._cx = cx
+        self._cy = cy
+        self._width = width
+        self._height = height
+        self._mood = mood
 
         # calculate points
-        self._lx = self.cx - self.width // 2
-        self._rx = self.cx + self.width // 2
-        self._dy = self.height // 2
+        self._lx = self._cx - self._width // 2
+        self._rx = self._cx + self._width // 2
+        self._height_current = 0
 
     @classmethod
-    def from_face_radius(
+    def from_face(
         cls,
-        face_cx: int,
-        face_cy: int,
-        radius: int,
+        face,
         scale_offset_y: float = 0.35,
         scale_height: float = 0.4,
         scale_width: float = 0.8,
     ):
         return cls(
-            cx=face_cx,
-            cy=face_cy + int(radius * scale_offset_y),
-            height=int(radius * scale_height),
-            width=int(radius * scale_width),
+            cx=face.cx,
+            cy=face.cy + int(face.radius * scale_offset_y),
+            height=int(face.radius * scale_height),
+            width=int(face.radius * scale_width),
         )
 
-    def set_scale(self, scale: float = 1.0) -> bool:
-        """update smile height by scale.Return True if value changed, return False if last height equal current."""
-        dy = int(scale * self.height / 2)
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
+        if mood:
+            self.mood = mood
 
-        if self._dy == dy:
-            return False
+        # set default
+        result = False
 
-        self._dy = dy
-        return True
-
-    def draw(self, display: SSD1306) -> None:
         match self.mood:
             case Mood.smile | Mood.happy:
-                p0 = (self._lx, self.cy - self._dy)
-                p1 = (self.cx, self.cy + self._dy)
-                p2 = (self._rx, self.cy - self._dy)
-            case Mood.angry:
-                p0 = (self._lx, self.cy + self._dy)
-                p1 = (self.cx, self.cy - self._dy)
-                p2 = (self._rx, self.cy + self._dy)
-            case Mood.neutral | _:
-                p0 = (self._lx, self.cy)
-                p1 = (self.cx, self.cy)
-                p2 = (self._rx, self.cy)
+                height_current = int(transition * self._height / 2)
 
-        display.quad_bezier(p0, p1, p2)
+                if self._height_current != height_current:
+                    self._height_current = height_current
+                    self.p0 = (self._lx, self._cy - self._height_current)
+                    self.p1 = (self._cx, self._cy + self._height_current)
+                    self.p2 = (self._rx, self._cy - self._height_current)
+                    result = True
+
+            case Mood.angry:
+                height_current = int(transition * self._height / 2)
+
+                if self._height_current != height_current:
+                    self._height_current = height_current
+                    self.p0 = (self._lx, self._cy + self._height_current)
+                    self.p1 = (self._cx, self._cy - self._height_current)
+                    self.p2 = (self._rx, self._cy + self._height_current)
+                    result = True
+
+            case Mood.neutral | _:
+                self.p0 = (self._lx, self._cy)
+                self.p1 = (self._cx, self._cy)
+                self.p2 = (self._rx, self._cy)
+                result = True
+
+        return result
+
+    def draw(self, display: SSD1306) -> None:
+        display.quad_bezier(self.p0, self.p1, self.p2)
 
 
 class SmileEye:
@@ -318,20 +327,19 @@ class RoboFace:
             face_radius=self.radius,
         )
 
-        # mouth
-        self.mouth = Mouth.from_face_radius(self.cx, self.cy, self.radius)
+        # Mouth
+        self.mouth = SmileMouth.from_face(face=self)
 
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
 
-        self.mouth.mood = self.mood
         self.eyebrow_r.mood = self.mood
         self.eyebrow_l.mood = self.mood
 
-        self.mouth.set_scale(1.0)
         self.eyebrow_r.set_scale(1)
         self.eyebrow_l.set_scale(1)
 
+        self.mouth.set(self.mood, 1.0)
         self.eye_l.set(self.mood, 1.0)
         self.eye_r.set(self.mood, 1.0)
 
@@ -350,7 +358,7 @@ class RoboFace:
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
 
-            updated_mouth = False if not self.mouth else self.mouth.set_scale(k)
+            updated_mouth = False if not self.mouth else self.mouth.set(self.mood, k)
             updated_eye_left = False if not self.eye_l else self.eye_l.set(self.mood, k)
             updated_eye_right = (
                 False if not self.eye_r else self.eye_r.set(self.mood, k)
