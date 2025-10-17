@@ -325,7 +325,14 @@ class RoboFace:
 
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
-        self.mouth.set_scale(1.0)  # set full height for static
+
+        self.eyebrow_r.mood = self.mood
+        self.eyebrow_l.mood = self.mood
+
+        self.eye_r.mood = self.mood
+        self.eye_l.mood = self.mood
+
+        self.mouth.mood = self.mood
 
         match mood:
             case Mood.smile:
@@ -341,60 +348,24 @@ class RoboFace:
         self._draw_frame()
 
     def _set_smile(self) -> None:
-        self.eyebrow_angle = 0
-
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-        self.mouth.mood = self.mood
+        self.mouth.set_scale(1.0)  # set full height for static
 
     def _set_happy(self) -> None:
-        self.eyebrow_angle = 0
-
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-        self.mouth.mood = self.mood
-
         self.eye_l.set_close(1)
         # self.eye_r.set_close(1)
         # self.eye_l.set_ellipsis(0)
         self.eye_r.set_ellipsis(0)
 
     def _set_angry(self) -> None:
-        self.eyebrow_angle = math.pi / 8
-
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-        self.mouth.mood = self.mood
-
         self.eyebrow_r.set_scale(1)
         self.eyebrow_l.set_scale(1)
 
     def _set_shocked(self) -> None:
-        self.eyebrow_angle = 0
-
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-        self.mouth.mood = self.mood
-
         self.eye_r.set_scale(1)
         self.eye_l.set_scale(1)
 
     def _set_neutral(self) -> None:
-        self.eyebrow_angle = 0
-
-        self.eyebrow_r.mood = self.mood
-        self.eyebrow_l.mood = self.mood
-        self.eye_r.mood = self.mood
-        self.eye_l.mood = self.mood
-        self.mouth.mood = self.mood
+        pass
 
     async def animate_smile(
         self,
@@ -402,11 +373,10 @@ class RoboFace:
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
-        self.mood = Mood.smile
-        self._set_smile()
+        self.set_mood(Mood.smile)
+        self.smile_height = 0
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
-        self.smile_height = 0
 
         for f in range(frames_n):
             # The percentage we show 0-1. For reverse decreases with each frame.
@@ -425,11 +395,10 @@ class RoboFace:
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
-        self.mood = Mood.happy
-        self._set_happy()
+        self.set_mood(Mood.happy)
+        self.smile_height = 0
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
-        self.smile_height = 0
 
         for f in range(frames_n):
             # The percentage we show 0-1. For reverse decreases with each frame.
@@ -454,8 +423,7 @@ class RoboFace:
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
-        self.mood = Mood.angry
-        self._set_angry()
+        self.set_mood(Mood.angry)
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
@@ -477,8 +445,7 @@ class RoboFace:
         fps: int = 30,
         reverse: bool = False,
     ) -> None:
-        self.mood = Mood.shocked
-        self._set_shocked()
+        self.set_mood(Mood.shocked)
         duration = duration if duration else self.animation_duration
         frames_n = int(duration * fps)
 
@@ -509,8 +476,8 @@ class RoboFace:
                 await self.animate_shocked(duration=duration, fps=fps, reverse=True)
             case Mood.happy:
                 await self.animate_happy(duration=duration, fps=fps, reverse=True)
-        self.mood = Mood.neutral
-        self._set_neutral()
+
+        self.set_mood(Mood.happy)
 
     def _draw_frame(self) -> None:
         self.oled.fill(0)
