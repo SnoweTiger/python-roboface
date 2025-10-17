@@ -337,6 +337,43 @@ class RoboFace:
 
         self._draw_frame()
 
+    async def _animate(
+        self,
+        duration: float | None = None,
+        fps: int = 30,
+        reverse: bool = False,
+    ) -> None:
+        duration = duration if duration else self.animation_duration
+        frames_n = int(duration * fps)
+
+        for f in range(frames_n):
+            # The percentage we show 0-1. For reverse decreases with each frame.
+            k = (frames_n - f) / frames_n if reverse else f / frames_n
+
+            updated_mouth = False if not self.mouth else self.mouth.set_scale(k)
+            updated_eye_left = False if not self.eye_l else self.eye_l.set(self.mood, k)
+            updated_eye_right = (
+                False if not self.eye_r else self.eye_r.set(self.mood, k)
+            )
+            updated_eyebrow_left = (
+                False if not self.eyebrow_l else self.eyebrow_l.set_scale(k)
+            )
+            updated_eyebrow_right = (
+                False if not self.eyebrow_r else self.eyebrow_r.set_scale(k)
+            )
+
+            # Draw only if smile_height changed
+            if (
+                updated_mouth
+                or updated_eye_left
+                or updated_eye_right
+                or updated_eyebrow_left
+                or updated_eyebrow_right
+            ):
+                self._draw_frame()
+
+            await asyncio.sleep(1 / fps)
+
     async def animate_smile(
         self,
         duration: float | None = None,
@@ -344,19 +381,7 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.smile)
-        duration = duration if duration else self.animation_duration
-        frames_n = int(duration * fps)
-
-        for f in range(frames_n):
-            # The percentage we show 0-1. For reverse decreases with each frame.
-            k = (frames_n - f) / frames_n if reverse else f / frames_n
-            updated = self.mouth.set_scale(k)
-
-            # Draw only if smile_height changed
-            if updated:
-                self._draw_frame()
-
-            await asyncio.sleep(1 / fps)
+        await self._animate(duration, fps, reverse)
 
     async def animate_happy(
         self,
@@ -365,22 +390,7 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.happy)
-        duration = duration if duration else self.animation_duration
-        frames_n = int(duration * fps)
-
-        for f in range(frames_n):
-            # The percentage we show 0-1. For reverse decreases with each frame.
-            k = (frames_n - f) / frames_n if reverse else f / frames_n
-
-            updated_mouth = self.mouth.set_scale(k)
-            updated_eye_left = self.eye_l.set(self.mood, k)
-            updated_eye_right = self.eye_r.set(self.mood, k)
-
-            # Draw only if smile_height changed
-            if updated_mouth or updated_eye_left or updated_eye_right:
-                self._draw_frame()
-
-            await asyncio.sleep(1 / fps)
+        await self._animate(duration, fps, reverse)
 
     async def animate_angry(
         self,
@@ -389,20 +399,7 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.angry)
-        duration = duration if duration else self.animation_duration
-        frames_n = int(duration * fps)
-
-        for f in range(frames_n):
-            k = (frames_n - f) / frames_n if reverse else f / frames_n
-            updated_m = self.mouth.set_scale(k)
-            updated_e_l = self.eyebrow_l.set_scale(k)
-            updated_e_r = self.eyebrow_r.set_scale(k)
-
-            # Draw only if smile_height changed
-            if updated_m or updated_e_l or updated_e_r:
-                self._draw_frame()
-
-            await asyncio.sleep(1 / fps)
+        await self._animate(duration, fps, reverse)
 
     async def animate_shocked(
         self,
@@ -411,27 +408,14 @@ class RoboFace:
         reverse: bool = False,
     ) -> None:
         self.set_mood(Mood.shocked)
-        duration = duration if duration else self.animation_duration
-        frames_n = int(duration * fps)
-
-        for f in range(frames_n):
-            # The percentage we show 0-1. For reverse decreases with each frame.
-            k = (frames_n - f) / frames_n if reverse else f / frames_n
-            updated_l = self.eye_l.set(self.mood, k)
-            updated_r = self.eye_r.set(self.mood, k)
-
-            # Draw only if smile_height changed
-            if updated_l or updated_r:
-                self._draw_frame()
-
-            await asyncio.sleep(1 / fps)
+        await self._animate(duration, fps, reverse)
 
     async def animate_neutral(
         self,
         duration: float | None = None,
         fps: int = 30,
     ) -> None:
-        duration = duration if duration else self.animation_duration
+        # duration = duration if duration else self.animation_duration
         match self.mood:
             case Mood.smile:
                 await self.animate_smile(duration=duration, fps=fps, reverse=True)
