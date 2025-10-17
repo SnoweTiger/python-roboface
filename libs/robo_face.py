@@ -105,7 +105,6 @@ class SmileEye:
         cy: int,  # in pixels
         radius: int,  # in pixels
         get_shocked: bool = True,
-        color: int = 1,
         mood: Mood = Mood.neutral,
         has_eye_lid: bool = False,
     ):
@@ -114,13 +113,8 @@ class SmileEye:
         self._radius = radius
         self._mood = mood
         self._get_shocked = get_shocked
-        self._color = color
-        self._scale = 0
-
-        self._radius_current = self._radius
-
         self._has_eye_lid = has_eye_lid
-
+        self._radius_current = self._radius
         self._ellipsis = 1.0
         self._eyelid_height = 0
 
@@ -144,11 +138,8 @@ class SmileEye:
             has_eye_lid=has_eye_lid,
         )
 
-    def set(
-        self,
-        mood: Mood | None = None,
-        transition: float = 1.0,  # 0.0 -> 1.0, start -> finish
-    ) -> bool:
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
         if mood:
             self.mood = mood
 
@@ -170,7 +161,7 @@ class SmileEye:
 
             case Mood.happy:
                 if self._has_eye_lid:
-                    # eylids
+                    # eyelids
                     eyelid_height = math.ceil(transition * self._radius_current)
                     if self._eyelid_height == eyelid_height:
                         result = False
@@ -178,7 +169,7 @@ class SmileEye:
                         self._eyelid_height = eyelid_height
                         result = True
                 else:
-                    # elepsis
+                    # ellipsis
                     if self._ellipsis == 1 - transition:
                         result = False
                     else:
