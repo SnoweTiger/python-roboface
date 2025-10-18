@@ -2,6 +2,7 @@ import math
 import asyncio
 from enum import Enum
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 from libs.oled import SSD1306
 
@@ -22,6 +23,34 @@ class EyebrowGeometry:
     y2: int
 
 
+# Abstract classes for styles
+class Face(ABC):
+    oled: SSD1306
+    cx: int
+    cy: int
+    mood: Mood
+    radius: int
+
+    @abstractmethod
+    def set_mood(self, mood: Mood) -> None:
+        pass
+
+
+class Eye(ABC):
+    @abstractmethod
+    def __init__(self, cx: int, cy: int, radius: int):
+        pass
+
+    @abstractmethod
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        pass
+
+    @abstractmethod
+    def draw(self, display: SSD1306) -> None:
+        pass
+
+
+# Smile style
 class SmileMouth:
     def __init__(
         self,
@@ -45,7 +74,7 @@ class SmileMouth:
     @classmethod
     def from_face(
         cls,
-        face,
+        face: Face,
         scale_offset_y: float = 0.35,
         scale_height: float = 0.4,
         scale_width: float = 0.8,
@@ -98,7 +127,7 @@ class SmileMouth:
         display.quad_bezier(self.p0, self.p1, self.p2)
 
 
-class SmileEye:
+class SmileEye(Eye):
     def __init__(
         self,
         cx: int,  # in pixels
@@ -121,7 +150,7 @@ class SmileEye:
     @classmethod
     def from_face(
         cls,
-        face,
+        face: Face,
         scale_offset_x: float = 0.45,
         scale_offset_y: float = 0.35,
         scale_radius: float = 0.17,
@@ -236,7 +265,7 @@ class SmileEyebrow:
     @classmethod
     def from_face(
         cls,
-        face,
+        face: Face,
         scale_offset_x: float = 0.40,
         scale_offset_y: float = 0.55,
         scale_length: float = 0.5,
@@ -283,7 +312,7 @@ class SmileEyebrow:
             display.line(self._geom.x1, self._geom.y1, self._geom.x2, self._geom.y2, 1)
 
 
-class RoboFace:
+class RoboFace(Face):
     def __init__(
         self,
         oled: SSD1306,
