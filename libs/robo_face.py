@@ -15,6 +15,11 @@ class Mood(Enum):
     shocked = 5
 
 
+class Style(Enum):
+    smile = 1
+    robo_round = 2
+
+
 @dataclass
 class EyebrowGeometry:
     x1: int
@@ -340,6 +345,120 @@ class SmileEyebrow(Eyebrow):
             display.line(self._geom.x1, self._geom.y1, self._geom.x2, self._geom.y2, 1)
 
 
+# RoboRound style
+class RoboRoundEye(Eye):
+    def __init__(
+        self,
+        cx: int,  # in pixels
+        cy: int,  # in pixels
+        radius: int,  # in pixels
+        get_shocked: bool = True,
+        mood: Mood = Mood.neutral,
+        has_eye_lid: bool = False,
+    ):
+        self._cx = cx
+        self._cy = cy
+        self._radius = radius
+        self._mood = mood
+        self._get_shocked = get_shocked
+        self._has_eye_lid = has_eye_lid
+        self._radius_current = self._radius
+        self._ellipsis = 1.0
+        self._eyelid_height = 0
+
+    @classmethod
+    def from_face(
+        cls,
+        face: Face,
+        scale_offset_x: float = 0.45,
+        scale_offset_y: float = 0.35,
+        scale_radius: float = 0.25,
+        right: bool = True,
+        get_shocked: bool = True,
+        has_eye_lid: bool = False,
+    ):
+        k = 1 if right else -1
+        return cls(
+            cx=face.cx + k * int(face.radius * scale_offset_x),
+            cy=face.cy - int(face.radius * scale_offset_y),
+            radius=int(face.radius * scale_radius),
+            get_shocked=get_shocked,
+            has_eye_lid=has_eye_lid,
+        )
+
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
+        if mood:
+            self.mood = mood
+
+        # set default
+        result = False
+        self._eyelid_height = 0
+        self._ellipsis = 1.0
+        self._radius_current = self._radius
+
+        match self.mood:
+            case Mood.shocked if self._get_shocked:
+                new_radius = self._radius + int(transition * self._radius)
+
+                if self._radius_current == new_radius:
+                    result = False
+                else:
+                    self._radius_current = new_radius
+                    result = True
+
+            case Mood.happy:
+                if self._has_eye_lid:
+                    # eyelids
+                    eyelid_height = math.ceil(transition * self._radius_current)
+                    if self._eyelid_height == eyelid_height:
+                        result = False
+                    else:
+                        self._eyelid_height = eyelid_height
+                        result = True
+                else:
+                    # ellipsis
+                    if self._ellipsis == 1 - transition:
+                        result = False
+                    else:
+                        self._ellipsis = 1 - transition
+                        result = True
+
+            case Mood.neutral | Mood.smile | _:
+                # default
+                pass
+
+        return result
+
+    def draw(self, display: SSD1306) -> None:
+        # draw eye
+        display.filled_circle(
+            self._cx,
+            self._cy,
+            self._radius_current,
+            1,
+            self._ellipsis,
+        )
+
+        # draw eyelid
+        if self._eyelid_height != 0:
+            eyelid_bot_width = self._radius_current * 2 + 1
+            display.filled_rectangle(
+                self._cx - self._radius_current,
+                self._cy - self._radius_current,
+                eyelid_bot_width,
+                self._eyelid_height,
+                0,
+            )
+            display.filled_rectangle(
+                self._cx - self._radius_current,
+                self._cy + self._radius_current,
+                eyelid_bot_width,
+                self._eyelid_height * -1,
+                0,
+            )
+
+
 class RoboFace(Face):
     def __init__(
         self,
@@ -347,6 +466,7 @@ class RoboFace(Face):
         border: bool = False,
         color: int = 1,
         animation_duration: float = 1,
+        style: Style = Style.smile,
     ):
         self.oled = oled
         self.cx = oled.width // 2
@@ -357,25 +477,39 @@ class RoboFace(Face):
         self.mood = Mood.neutral
         self.radius = int(min(oled.width, oled.height) * 0.95) // 2
 
-        # Eye
-        self.eye_l = SmileEye.from_face(face=self, right=False, get_shocked=False)
-        self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)
-
-        # Eyebrow
-        self.eyebrow_l = SmileEyebrow.from_face(face=self)
-        self.eyebrow_r = SmileEyebrow.from_face(face=self, is_right=True)
-
-        # Mouth
-        self.mouth = SmileMouth.from_face(face=self)
+        # style
+        match style:
+            case Style.robo_round:
+                self.eye_l = RoboRoundEye.from_face(
+                    face=self,
+                    right=False,
+                    get_shocked=False,
+                )
+                self.eye_r = RoboRoundEye.from_face(face=self, has_eye_lid=True)
+            case Style.smile | _:
+                self.eye_l = SmileEye.from_face(
+                    face=self,
+                    right=False,
+                    get_shocked=False,
+                )
+                self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)
+                self.eyebrow_l = SmileEyebrow.from_face(face=self)
+                self.eyebrow_r = SmileEyebrow.from_face(face=self, is_right=True)
+                self.mouth = SmileMouth.from_face(face=self)
 
     def set_mood(self, mood: Mood) -> None:
         self.mood = mood
 
-        self.mouth.set(self.mood, 1.0)
-        self.eye_l.set(self.mood, 1.0)
-        self.eye_r.set(self.mood, 1.0)
-        self.eyebrow_r.set(self.mood, 1.0)
-        self.eyebrow_l.set(self.mood, 1.0)
+        if hasattr(self, "mouth"):
+            self.mouth.set(self.mood, 1.0)
+        if hasattr(self, "eye_l"):
+            self.eye_l.set(self.mood, 1.0)
+        if hasattr(self, "eye_r"):
+            self.eye_r.set(self.mood, 1.0)
+        if hasattr(self, "eyebrow_r"):
+            self.eyebrow_r.set(self.mood, 1.0)
+        if hasattr(self, "eyebrow_l"):
+            self.eyebrow_l.set(self.mood, 1.0)
 
         self._draw_frame()
 
@@ -392,16 +526,24 @@ class RoboFace(Face):
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
 
-            updated_mouth = False if not self.mouth else self.mouth.set(self.mood, k)
-            updated_eye_left = False if not self.eye_l else self.eye_l.set(self.mood, k)
+            updated_mouth = (
+                False if not hasattr(self, "mouth") else self.mouth.set(self.mood, k)
+            )
+            updated_eye_left = (
+                False if not hasattr(self, "eye_l") else self.eye_l.set(self.mood, k)
+            )
             updated_eye_right = (
-                False if not self.eye_r else self.eye_r.set(self.mood, k)
+                False if not hasattr(self, "eye_r") else self.eye_r.set(self.mood, k)
             )
             updated_eyebrow_left = (
-                False if not self.eyebrow_l else self.eyebrow_l.set(self.mood, k)
+                False
+                if not hasattr(self, "eyebrow_l")
+                else self.eyebrow_l.set(self.mood, k)
             )
             updated_eyebrow_right = (
-                False if not self.eyebrow_r else self.eyebrow_r.set(self.mood, k)
+                False
+                if not hasattr(self, "eyebrow_r")
+                else self.eyebrow_r.set(self.mood, k)
             )
 
             # Draw only if smile_height changed
@@ -476,19 +618,19 @@ class RoboFace(Face):
             self.oled.circle(self.cx, self.cy, self.radius, 1)
 
         # Eye
-        if self.eye_l:
+        if hasattr(self, "eye_l"):
             self.eye_l.draw(self.oled)
-        if self.eye_r:
+        if hasattr(self, "eye_r"):
             self.eye_r.draw(self.oled)
 
         # Eyebrows
-        if self.eyebrow_l:
+        if hasattr(self, "eyebrow_l"):
             self.eyebrow_l.draw(self.oled)
-        if self.eyebrow_r:
+        if hasattr(self, "eyebrow_r"):
             self.eyebrow_r.draw(self.oled)
 
         # Mouth
-        if self.mouth:
+        if hasattr(self, "mouth"):
             self.mouth.draw(self.oled)
 
         self.oled.show()
