@@ -64,6 +64,20 @@ class Eye(ABC):
         pass
 
 
+class Eyebrow(ABC):
+    @abstractmethod
+    def __init__(self, cx: int, cy: int, height: int, width: int) -> None:
+        pass
+
+    @abstractmethod
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        pass
+
+    @abstractmethod
+    def draw(self, display: SSD1306) -> None:
+        pass
+
+
 # Smile style
 class SmileMouth(Mouth):
     def __init__(
@@ -254,7 +268,7 @@ class SmileEye(Eye):
             )
 
 
-class SmileEyebrow:
+class SmileEyebrow(Eyebrow):
     def __init__(
         self,
         cx: int,  # in pixels
