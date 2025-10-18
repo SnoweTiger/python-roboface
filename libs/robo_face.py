@@ -36,6 +36,20 @@ class Face(ABC):
         pass
 
 
+class Mouth(ABC):
+    @abstractmethod
+    def __init__(self, cx: int, cy: int, height: int, width: int):
+        pass
+
+    @abstractmethod
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        pass
+
+    @abstractmethod
+    def draw(self, display: SSD1306) -> None:
+        pass
+
+
 class Eye(ABC):
     @abstractmethod
     def __init__(self, cx: int, cy: int, radius: int):
@@ -51,7 +65,7 @@ class Eye(ABC):
 
 
 # Smile style
-class SmileMouth:
+class SmileMouth(Mouth):
     def __init__(
         self,
         cx: int,  # in pixels
