@@ -119,6 +119,16 @@ class SmileMouth(Mouth):
             width=int(face.radius * scale_width),
         )
 
+    def _set_points_from_height(self, height_current: int) -> bool:
+        if self._height_current == height_current:
+            return False
+
+        self._height_current = height_current
+        self.p0 = (self._lx, self._cy - self._height_current)
+        self.p1 = (self._cx, self._cy + self._height_current)
+        self.p2 = (self._rx, self._cy - self._height_current)
+        return True
+
     def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
         # transition: float = 0.0 -> 1.0, start -> finish
         if mood:
@@ -130,23 +140,11 @@ class SmileMouth(Mouth):
         match self.mood:
             case Mood.smile | Mood.happy:
                 height_current = int(transition * self._height / 2)
-
-                if self._height_current != height_current:
-                    self._height_current = height_current
-                    self.p0 = (self._lx, self._cy - self._height_current)
-                    self.p1 = (self._cx, self._cy + self._height_current)
-                    self.p2 = (self._rx, self._cy - self._height_current)
-                    result = True
+                result = self._set_points_from_height(height_current)
 
             case Mood.angry:
-                height_current = int(transition * self._height / 2)
-
-                if self._height_current != height_current:
-                    self._height_current = height_current
-                    self.p0 = (self._lx, self._cy + self._height_current)
-                    self.p1 = (self._cx, self._cy - self._height_current)
-                    self.p2 = (self._rx, self._cy + self._height_current)
-                    result = True
+                height_current = int(transition * self._height / 2) * -1
+                result = self._set_points_from_height(height_current)
 
             case Mood.neutral | _:
                 self.p0 = (self._lx, self._cy)
@@ -513,13 +511,7 @@ class RoboFace(Face):
 
         self._draw_frame()
 
-    async def _animate(
-        self,
-        duration: float | None = None,
-        fps: int = 30,
-        reverse: bool = False,
-    ) -> None:
-        duration = duration if duration else self.animation_duration
+    async def _animate(self, duration: float, fps: int, reverse: bool = False) -> None:
         frames_n = int(duration * fps)
 
         for f in range(frames_n):
