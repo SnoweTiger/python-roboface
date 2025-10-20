@@ -344,6 +344,88 @@ class SmileEyebrow(Eyebrow):
 
 
 # RoboRound style
+class RoboMouth(Mouth):
+    def __init__(
+        self,
+        cx: int,  # in pixels
+        cy: int,  # in pixels
+        height: int,  # in pixels
+        width: int,  # in pixels
+        mood: Mood = Mood.neutral,
+    ) -> None:
+        self._cx = cx
+        self._cy = cy
+        self._width = width
+        self._height = height
+        self._mood = mood
+        self._curve_steps: int = 64
+        self._curve_steps_current: int = self._curve_steps // 2
+        self._filled: float = 1.0
+
+        # calculate points
+        self._lx = self._cx - self._width // 2
+        self._rx = self._cx + self._width // 2
+        self.p0 = (self._lx, self._cy)
+        self.p2 = (self._rx, self._cy)
+
+    @classmethod
+    def from_face(
+        cls,
+        face: Face,
+        scale_offset_y: float = 0.35,
+        scale_height: float = 0.25,
+        scale_width: float = 0.9,
+    ):
+        return cls(
+            cx=face.cx,
+            cy=face.cy + int(face.radius * scale_offset_y),
+            height=int(face.radius * scale_height),
+            width=int(face.radius * scale_width),
+        )
+
+    def _set_points_from_height(self, height: int, transition: float) -> bool:
+        current = int(self._curve_steps * transition / 2)
+        self.p1 = (self._cx, self._cy + 2 * height)
+
+        if self._curve_steps_current == current:
+            return False
+
+        self._curve_steps_current = current
+        return True
+
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
+        if mood:
+            self._mood = mood
+
+        # set default
+        result = False
+
+        match self._mood:
+            case Mood.smile | Mood.happy:
+                result = self._set_points_from_height(self._height, transition)
+
+            case Mood.angry:
+                result = self._set_points_from_height(self._height * -1, transition)
+
+            case Mood.neutral | _:
+                self.p0 = (self._lx, self._cy)
+                self.p1 = (self._cx, self._cy)
+                self.p2 = (self._rx, self._cy)
+                result = True
+
+        return result
+
+    def draw(self, display: SSD1306) -> None:
+        display.quad_bezier_filled(
+            self.p0,
+            self.p1,
+            self.p2,
+            steps=self._curve_steps,
+            steps_current=self._curve_steps_current,
+        )
+
+
 class RoboRoundEye(Eye):
     def __init__(
         self,
@@ -484,6 +566,8 @@ class RoboFace(Face):
                     get_shocked=False,
                 )
                 self.eye_r = RoboRoundEye.from_face(face=self, has_eye_lid=True)
+                self.mouth = RoboMouth.from_face(face=self)
+
             case Style.smile | _:
                 self.eye_l = SmileEye.from_face(
                     face=self,

@@ -165,9 +165,9 @@ class SSD1306:
 
     def quad_bezier(
         self,
-        p0,
-        p1,
-        p2,
+        p0: tuple[int, int],
+        p1: tuple[int, int],
+        p2: tuple[int, int],
         color: int = 1,
         steps: int = 64,
         offset_x: int = 0,
@@ -176,12 +176,36 @@ class SSD1306:
         x0, y0 = p0
         x1, y1 = p1
         x2, y2 = p2
+
         for i in range(steps + 1):
             t = i / steps
             mt = 1.0 - t
             x = int(mt * mt * x0 + 2 * mt * t * x1 + t * t * x2 + offset_x)
             y = int(mt * mt * y0 + 2 * mt * t * y1 + t * t * y2 + offset_y)
             self.pixel(x, y, color)
+
+    def quad_bezier_filled(
+        self,
+        p0: tuple[int, int],
+        p1: tuple[int, int],
+        p2: tuple[int, int],
+        color: int = 1,
+        steps: int = 64,
+        steps_current: int = 64,
+    ) -> None:
+        x0, y0 = p0
+        x1, y1 = p1
+        x2, y2 = p2
+
+        length_h = x2 + x0
+
+        for i in range(steps_current):
+            t = i / steps
+            mt = 1.0 - t
+            x = int(mt * mt * x0 + 2 * mt * t * x1 + t * t * x2)
+            y = int(mt * mt * y0 + 2 * mt * t * y1 + t * t * y2)
+
+            self.hline(x, y, length_h - 2 * x, color)
 
     def circle(self, cx: int, cy: int, r: int, color: int = 1) -> None:
         x = r
