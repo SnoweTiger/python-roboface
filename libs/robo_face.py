@@ -550,59 +550,20 @@ class RoboFace(Face):
 
             await asyncio.sleep(1 / fps)
 
-    async def animate_smile(
+    async def set_mood_animated(
         self,
-        duration: float | None = None,
-        fps: int = 30,
-        reverse: bool = False,
-    ) -> None:
-        self.set_mood(Mood.smile)
-        await self._animate(duration, fps, reverse)
-
-    async def animate_happy(
-        self,
-        duration: float | None = None,
-        fps: int = 30,
-        reverse: bool = False,
-    ) -> None:
-        self.set_mood(Mood.happy)
-        await self._animate(duration, fps, reverse)
-
-    async def animate_angry(
-        self,
-        duration: float | None = None,
-        fps: int = 30,
-        reverse: bool = False,
-    ) -> None:
-        self.set_mood(Mood.angry)
-        await self._animate(duration, fps, reverse)
-
-    async def animate_shocked(
-        self,
-        duration: float | None = None,
-        fps: int = 30,
-        reverse: bool = False,
-    ) -> None:
-        self.set_mood(Mood.shocked)
-        await self._animate(duration, fps, reverse)
-
-    async def animate_neutral(
-        self,
+        mood: Mood,
         duration: float | None = None,
         fps: int = 30,
     ) -> None:
-        # duration = duration if duration else self.animation_duration
-        match self.mood:
-            case Mood.smile:
-                await self.animate_smile(duration=duration, fps=fps, reverse=True)
-            case Mood.angry:
-                await self.animate_angry(duration=duration, fps=fps, reverse=True)
-            case Mood.shocked:
-                await self.animate_shocked(duration=duration, fps=fps, reverse=True)
-            case Mood.happy:
-                await self.animate_happy(duration=duration, fps=fps, reverse=True)
+        duration = duration if duration else self.animation_duration
 
-        self.set_mood(Mood.happy)
+        if mood == Mood.neutral:
+            await self._animate(duration, fps, True)
+            self.set_mood(mood)
+
+        self.set_mood(mood)
+        await self._animate(duration, fps)
 
     def _draw_frame(self) -> None:
         self.oled.fill(0)
