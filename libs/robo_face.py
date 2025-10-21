@@ -438,17 +438,19 @@ class RoboRoundEye(Eye):
         radius: int,  # in pixels
         get_shocked: bool = True,
         mood: Mood = Mood.neutral,
-        has_eye_lid: bool = False,
+        right: bool = True,
     ):
         self._cx = cx
         self._cy = cy
         self._radius = radius
         self._mood = mood
         self._get_shocked = get_shocked
-        self._has_eye_lid = has_eye_lid
         self._radius_current = self._radius
-        self._ellipsis = 1.0
-        self._eyelid_height = 0
+        self._right = right
+
+        self._eyelid_radius = int(self._radius_current * 1.4)
+        self._eyelid_bottom_offset = int(self._radius_current * 0.8)
+        self._eyelid_offset_current = 0
 
     @classmethod
     def from_face(
@@ -459,7 +461,6 @@ class RoboRoundEye(Eye):
         scale_radius: float = 0.25,
         right: bool = True,
         get_shocked: bool = True,
-        has_eye_lid: bool = False,
     ):
         k = 1 if right else -1
         return cls(
@@ -467,49 +468,34 @@ class RoboRoundEye(Eye):
             cy=face.cy - int(face.radius * scale_offset_y),
             radius=int(face.radius * scale_radius),
             get_shocked=get_shocked,
-            has_eye_lid=has_eye_lid,
+            right=right,
         )
 
     def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
         # transition: float = 0.0 -> 1.0, start -> finish
         if mood:
-            self.mood = mood
+            self._mood = mood
 
         # set default
         result = False
-        self._eyelid_height = 0
-        self._ellipsis = 1.0
         self._radius_current = self._radius
 
-        match self.mood:
+        match self._mood:
             case Mood.shocked if self._get_shocked:
                 new_radius = self._radius + int(transition * self._radius)
 
-                if self._radius_current == new_radius:
-                    result = False
-                else:
+                if self._radius_current != new_radius:
                     self._radius_current = new_radius
                     result = True
 
-            case Mood.happy:
-                if self._has_eye_lid:
-                    # eyelids
-                    eyelid_height = math.ceil(transition * self._radius_current)
-                    if self._eyelid_height == eyelid_height:
-                        result = False
-                    else:
-                        self._eyelid_height = eyelid_height
-                        result = True
-                else:
-                    # ellipsis
-                    if self._ellipsis == 1 - transition:
-                        result = False
-                    else:
-                        self._ellipsis = 1 - transition
-                        result = True
+            case Mood.happy | Mood.angry:
+                offset = int(self._eyelid_bottom_offset * (transition - 1))
 
-            case Mood.neutral | Mood.smile | _:
-                # default
+                if self._eyelid_offset_current != offset:
+                    self._eyelid_offset_current = offset
+                    result = True
+
+            case _:
                 pass
 
         return result
@@ -521,26 +507,25 @@ class RoboRoundEye(Eye):
             self._cy,
             self._radius_current,
             1,
-            self._ellipsis,
         )
 
         # draw eyelid
-        if self._eyelid_height != 0:
-            eyelid_bot_width = self._radius_current * 2 + 1
-            display.filled_rectangle(
-                self._cx - self._radius_current,
-                self._cy - self._radius_current,
-                eyelid_bot_width,
-                self._eyelid_height,
-                0,
-            )
-            display.filled_rectangle(
-                self._cx - self._radius_current,
-                self._cy + self._radius_current,
-                eyelid_bot_width,
-                self._eyelid_height * -1,
-                0,
-            )
+        match self._mood:
+            case Mood.happy:
+                display.filled_circle(
+                    self._cx,
+                    self._cy + self._radius_current - self._eyelid_offset_current,
+                    self._eyelid_radius,
+                    color=0,
+                )
+
+            case Mood.angry:
+                display.filled_circle(
+                    self._cx + self._radius_current * (-1 if self._right else 1),
+                    self._cy - self._radius_current + self._eyelid_offset_current,
+                    self._eyelid_radius,
+                    color=0,
+                )
 
 
 class RoboFace(Face):
@@ -569,7 +554,7 @@ class RoboFace(Face):
                     right=False,
                     get_shocked=False,
                 )
-                self.eye_r = RoboRoundEye.from_face(face=self, has_eye_lid=True)
+                self.eye_r = RoboRoundEye.from_face(face=self)
                 self.mouth = RoboMouth.from_face(face=self)
 
             case Style.smile | _:
@@ -602,7 +587,7 @@ class RoboFace(Face):
     async def _animate(self, duration: float, fps: int, reverse: bool = False) -> None:
         frames_n = int(duration * fps)
 
-        for f in range(frames_n):
+        for f in range(frames_n + 1):
             # The percentage we show 0-1. For reverse decreases with each frame.
             k = (frames_n - f) / frames_n if reverse else f / frames_n
 

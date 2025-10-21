@@ -12,11 +12,11 @@ For example you can see main.py or just run it.
 
 ## Roadmap
 - [x] Add eyelids for more realistic winking
-- [ ] Add idle eye winking or moving
 - [ ] Add more face styles and style switch
-    - [ ] Ghost (only big eyes)
-    - [ ] Robo (big square eyes)
-    - [ ] Custom 
+    - [x] Style switching
+    - [x] RoboRound
+    - [ ] RoboQuad (big square eyes)
+- [ ] Add idle eye winking or moving
 - [ ] Add support other popular OLED displays
 
 ## Support project
