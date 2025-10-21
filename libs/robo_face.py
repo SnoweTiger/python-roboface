@@ -417,6 +417,10 @@ class RoboMouth(Mouth):
         return result
 
     def draw(self, display: SSD1306) -> None:
+        if self.p0[1] == self.p1[1]:
+            display.quad_bezier(self.p0, self.p1, self.p2)
+            return
+
         display.quad_bezier_filled(
             self.p0,
             self.p1,
