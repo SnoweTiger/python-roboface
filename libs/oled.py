@@ -276,3 +276,67 @@ class SSD1306:
                 self.hline(x, y + row, width, color)
         else:
             return
+
+    def filled_rectangle_rounded(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        radius: int,
+        color: int = 1,
+    ):
+        max_r = (width if width < height else height) // 2
+        if max_r < radius:
+            radius = max_r
+
+        self.filled_rectangle(x + radius, y, width - 2 * radius, height, color)
+        self.fill_circle_helper(
+            x + width - radius - 1,
+            y + radius,
+            radius,
+            1,
+            height - 2 * radius - 1,
+            color,
+        )
+        self.fill_circle_helper(
+            x + radius,
+            y + radius,
+            radius,
+            2,
+            height - 2 * radius - 1,
+            color,
+        )
+
+    def fill_circle_helper(
+        self,
+        x: int,
+        y: int,
+        radius: int,
+        side: int,
+        dist: int,
+        color: int = 1,
+    ):
+        f = 1 - radius
+        df_x = 1
+        df_y = -2 * radius
+        dx = 0
+        dy = radius
+
+        dist += 1
+
+        while dx < dy:
+            if f >= 0:
+                dy -= 1
+                df_y += 2
+                f += df_y
+
+            dx += 1
+            df_x += 2
+            f += df_x
+
+            if dx < (dy + 1):
+                if side == 1:
+                    self.vline(x + dx, y - dy, dist + 2 * dy, color)
+                if side == 2:
+                    self.vline(x - dx, y - dy, dist + 2 * dy, color)
