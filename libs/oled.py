@@ -132,14 +132,19 @@ class SSD1306:
             self.buffer[index] &= ~bit
 
     def hline(self, x: int, y: int, w: int, color: int = 1) -> None:
-        if w < 0:
+        if w == 0:
+            return
+        elif w < 0:
             x += w
             w = -w
+
         for i in range(x, x + w):
             self.pixel(i, y, color)
 
     def vline(self, x: int, y: int, h: int, color: int = 1) -> None:
-        if h < 0:
+        if h == 0:
+            return
+        elif h < 0:
             y += h
             h = -h
         for j in range(y, y + h):
@@ -269,13 +274,57 @@ class SSD1306:
         color: int = 1,
     ) -> None:
         if height < 0:
-            for row in range(abs(height)):
+            for row in range(abs(height) + 1):
                 self.hline(x, y - row, width, color)
         elif height > 0:
-            for row in range(height):
+            for row in range(height + 1):
                 self.hline(x, y + row, width, color)
         else:
             return
+
+    def filled_circle_quarter(
+        self,
+        cx: int,
+        cy: int,
+        radius: int,
+        quarter: int = 0,  # 0 - all, 1 - 0-90 grad, 2 - 90-180 grad, 3 - 180-270 grad, 4 - 270-0 grad,
+        color: int = 1,
+    ):
+        x = 0
+        y = radius
+        d = 3 - 2 * radius
+
+        while x <= y:
+            if quarter == 1:
+                pairs = [(x, -y), (y, -x)]
+            elif quarter == 2:
+                pairs = [(-x, -y), (-y, -x)]
+            elif quarter == 3:
+                pairs = [(-y, x), (-x, y)]
+            elif quarter == 4:
+                pairs = [(x, y), (y, x)]
+
+            else:
+                pairs = [
+                    (-x, -y),
+                    (-y, -x),
+                    (x, -y),
+                    (y, -x),
+                    (-y, x),
+                    (-x, y),
+                    (x, y),
+                    (y, x),
+                ]
+
+            for dx, dy in pairs:
+                self.hline(cx + dx, cy + dy, -dx, color)
+
+            if d < 0:
+                d = d + 4 * x + 6
+            else:
+                d = d + 4 * (x - y) + 10
+                y -= 1
+            x += 1
 
     def filled_rectangle_rounded(
         self,
@@ -290,21 +339,42 @@ class SSD1306:
         if max_r < radius:
             radius = max_r
 
-        self.filled_rectangle(x + radius, y, width - 2 * radius, height, color)
-        self.fill_circle_helper(
-            x + width - radius - 1,
+        self.filled_rectangle(x, y + radius, width, height - 2 * radius, color)
+        self.filled_rectangle(x + radius, y, width - 2 * radius, radius, color)
+        self.filled_rectangle(
+            x + radius,
+            y + height - radius,
+            width - 2 * radius,
+            radius,
+            color,
+        )
+
+        self.filled_circle_quarter(
+            x + width - radius,
             y + radius,
             radius,
             1,
-            height - 2 * radius - 1,
             color,
         )
-        self.fill_circle_helper(
+        self.filled_circle_quarter(
             x + radius,
             y + radius,
             radius,
             2,
-            height - 2 * radius - 1,
+            color,
+        )
+        self.filled_circle_quarter(
+            x + radius,
+            y + height - radius,
+            radius,
+            3,
+            color,
+        )
+        self.filled_circle_quarter(
+            x + width - radius,
+            y + height - radius,
+            radius,
+            4,
             color,
         )
 
