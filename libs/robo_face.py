@@ -18,6 +18,7 @@ class Mood(Enum):
 class Style(Enum):
     smile = 1
     robo_round = 2
+    robo_quad = 3
 
 
 @dataclass
@@ -528,6 +529,88 @@ class RoboRoundEye(Eye):
                 )
 
 
+# RoboQuad style
+class RoboQuadEye(Eye):
+    def __init__(
+        self,
+        cx: int,  # in pixels
+        cy: int,  # in pixels
+        width: int,  # in pixels
+        height: int,  # in pixels
+        get_shocked: bool = True,
+        mood: Mood = Mood.neutral,
+        right: bool = True,
+        rounded_radius: int | None = None,
+    ):
+        self._cx = cx
+        self._cy = cy
+
+        self._height = height
+        self._width = width
+        self._mood = mood
+        self._get_shocked = get_shocked
+        self._radius_current = self._width
+        self._right = right
+        self._rounded_radius = rounded_radius
+
+        self._eyelid_radius = int(self._radius_current * 1.4)
+        self._eyelid_bottom_offset = int(self._radius_current * 0.8)
+        self._eyelid_offset_current = 0
+
+    @classmethod
+    def from_face(
+        cls,
+        face: Face,
+        scale_offset_x: float = 0.5,
+        scale_offset_y: float = 0.0,
+        scale_height: float = 0.98,
+        scale_width: float = 0.8,
+        scale_rounded: float = 0.3,
+        right: bool = True,
+        get_shocked: bool = True,
+    ):
+        k = 1 if right else -1
+        return cls(
+            cx=face.cx + k * int(face.radius * scale_offset_x),
+            cy=face.cy - int(face.radius * scale_offset_y),
+            height=int(face.radius * scale_height),
+            width=int(face.radius * scale_width),
+            rounded_radius=int(face.radius * scale_width * scale_rounded),
+            get_shocked=get_shocked,
+            right=right,
+        )
+
+    def set(self, mood: Mood | None = None, transition: float = 1.0) -> bool:
+        # transition: float = 0.0 -> 1.0, start -> finish
+        if mood:
+            self._mood = mood
+
+        # set default
+        result = False
+
+        match self._mood:
+            case Mood.shocked if self._get_shocked:
+                pass
+            case Mood.happy | Mood.angry:
+                pass
+            case _:
+                pass
+
+        return result
+
+    def draw(self, display: SSD1306) -> None:
+        # draw eye
+        if self._rounded_radius is not None:
+            display.filled_rectangle_rounded(
+                self._cx - self._width // 2,
+                self._cy - self._width // 2,
+                self._width,
+                self._height,
+                self._rounded_radius,
+                1,
+            )
+
+
 class RoboFace(Face):
     def __init__(
         self,
@@ -556,6 +639,14 @@ class RoboFace(Face):
                 )
                 self.eye_r = RoboRoundEye.from_face(face=self)
                 self.mouth = RoboMouth.from_face(face=self)
+
+            case Style.robo_quad:
+                self.eye_l = RoboQuadEye.from_face(
+                    face=self,
+                    right=False,
+                    get_shocked=False,
+                )
+                self.eye_r = RoboQuadEye.from_face(face=self)
 
             case Style.smile | _:
                 self.eye_l = SmileEye.from_face(
