@@ -547,35 +547,30 @@ class RoboQuadEye(Eye):
 
         self._height = height
         self._width = width
+        self._height_current = height
+        self._width_current = width
         self._mood = mood
         self._get_shocked = get_shocked
-        self._radius_current = self._width
         self._right = right
         self._rounded_radius = rounded_radius
-
-        self._eyelid_radius = int(self._radius_current * 1.4)
-        self._eyelid_bottom_offset = int(self._radius_current * 0.8)
-        self._eyelid_offset_current = 0
 
     @classmethod
     def from_face(
         cls,
         face: Face,
-        scale_offset_x: float = 0.5,
-        scale_offset_y: float = 0.0,
-        scale_height: float = 0.98,
-        scale_width: float = 0.8,
-        scale_rounded: float = 0.3,
+        scale_height: float = 1.5,
+        scale_width: float = 1,
+        scale_rounded: float = 1,
         right: bool = True,
         get_shocked: bool = True,
     ):
         k = 1 if right else -1
         return cls(
-            cx=face.cx + k * int(face.radius * scale_offset_x),
-            cy=face.cy - int(face.radius * scale_offset_y),
-            height=int(face.radius * scale_height),
-            width=int(face.radius * scale_width),
-            rounded_radius=int(face.radius * scale_width * scale_rounded),
+            cx=face.cx + k * face.cx // 2,
+            cy=face.cy,
+            height=int(face.cy / 2 * scale_height),
+            width=int(face.cx / 2 * scale_width),
+            rounded_radius=int(3 * scale_rounded),
             get_shocked=get_shocked,
             right=right,
         )
@@ -587,12 +582,15 @@ class RoboQuadEye(Eye):
 
         # set default
         result = False
+        self._height_current = self._height
 
         match self._mood:
             case Mood.shocked if self._get_shocked:
-                pass
-            case Mood.happy | Mood.angry:
-                pass
+                new_height = self._height + int(transition * self._height * 0.5)
+
+                if self._height_current != new_height:
+                    self._height_current = new_height
+                    result = True
             case _:
                 pass
 
@@ -602,10 +600,10 @@ class RoboQuadEye(Eye):
         # draw eye
         if self._rounded_radius is not None:
             display.filled_rectangle_rounded(
-                self._cx - self._width // 2,
-                self._cy - self._width // 2,
-                self._width,
-                self._height,
+                self._cx - self._width_current // 2,
+                self._cy - self._height_current // 2,
+                self._width_current,
+                self._height_current,
                 self._rounded_radius,
                 1,
             )
@@ -627,7 +625,7 @@ class RoboFace(Face):
         self.color = color
         self.animation_duration = animation_duration
         self.mood = Mood.neutral
-        self.radius = int(min(oled.width, oled.height) * 0.95) // 2
+        self.radius = math.ceil(min(oled.width, oled.height) * 0.95) // 2
 
         # style
         match style:
