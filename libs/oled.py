@@ -410,3 +410,26 @@ class SSD1306:
                     self.vline(x + dx, y - dy, dist + 2 * dy, color)
                 if side == 2:
                     self.vline(x - dx, y - dy, dist + 2 * dy, color)
+
+    def fill_triangle(
+        self,
+        x0: int,
+        y0: int,
+        x2: int,
+        y2: int,
+        color: int = 1,
+    ):
+        w = x2 - x0
+        h = y2 - y0
+        y = y0
+        sb = 0
+        while y <= y2:
+            a = x2
+            b = x0 + sb // h
+            sb += w
+
+            if a > b:
+                a, b = b, a
+
+            self.hline(a, y, b - a + 1, color)
+            y += 1
