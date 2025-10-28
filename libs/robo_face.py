@@ -540,7 +540,7 @@ class RoboQuadEye(Eye):
         get_shocked: bool = True,
         mood: Mood = Mood.neutral,
         right: bool = True,
-        rounded_radius: int | None = None,
+        rounded_radius: int = 0,
     ):
         self._cx = cx
         self._cy = cy
@@ -553,6 +553,11 @@ class RoboQuadEye(Eye):
         self._get_shocked = get_shocked
         self._right = right
         self._rounded_radius = rounded_radius
+
+        # eyelid
+        self._eyelid_width = self._width_current - self._rounded_radius
+        self._eyelid_height = self._height_current // 2
+        self._eyelid_height_current = 0
 
     @classmethod
     def from_face(
@@ -583,6 +588,7 @@ class RoboQuadEye(Eye):
         # set default
         result = False
         self._height_current = self._height
+        self._eyelid_height_current = 0
 
         match self._mood:
             case Mood.shocked if self._get_shocked:
@@ -591,6 +597,14 @@ class RoboQuadEye(Eye):
                 if self._height_current != new_height:
                     self._height_current = new_height
                     result = True
+
+            case Mood.angry:
+                current = int(self._eyelid_height * transition)
+
+                if self._eyelid_height_current != current:
+                    self._eyelid_height_current = current
+                    result = True
+
             case _:
                 pass
 
@@ -598,7 +612,7 @@ class RoboQuadEye(Eye):
 
     def draw(self, display: SSD1306) -> None:
         # draw eye
-        if self._rounded_radius is not None:
+        if self._rounded_radius > 0:
             display.filled_rectangle_rounded(
                 self._cx - self._width_current // 2,
                 self._cy - self._height_current // 2,
@@ -607,6 +621,24 @@ class RoboQuadEye(Eye):
                 self._rounded_radius,
                 1,
             )
+        else:
+            display.filled_rectangle(
+                self._cx - self._width_current // 2,
+                self._cy - self._height_current // 2,
+                self._width_current,
+                self._height_current,
+                1,
+            )
+
+        # draw eyelid
+        if self._eyelid_height_current > 0:
+            # bottom inner corner
+            x_bi = self._cx + (-1 if self._right else 1) * self._width_current // 2
+            y_bi = self._cy - self._height_current // 2 + self._eyelid_height_current
+            # top outer corner
+            x_to = x_bi + (1 if self._right else -1) * self._eyelid_width
+            y_to = self._cy - self._height_current // 2
+            display.filled_triangle(x_to, y_to, x_bi, y_bi, 0)
 
 
 class RoboFace(Face):
