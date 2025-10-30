@@ -559,6 +559,9 @@ class RoboQuadEye(Eye):
         self._eyelid_height = self._height_current // 2
         self._eyelid_height_current = 0
 
+        self._eyelid_height_bottom = self._width_current // 2
+        self._eyelid_height_bottom_current = 0
+
     @classmethod
     def from_face(
         cls,
@@ -605,8 +608,12 @@ class RoboQuadEye(Eye):
                     self._eyelid_height_current = current
                     result = True
 
-            case _:
-                pass
+            case Mood.smile | Mood.happy:
+                current = int(self._eyelid_height_bottom * transition)
+
+                if self._eyelid_height_bottom_current != current:
+                    self._eyelid_height_bottom_current = current
+                    result = True
 
         return result
 
@@ -639,6 +646,16 @@ class RoboQuadEye(Eye):
             x_to = x_bi + (1 if self._right else -1) * self._eyelid_width
             y_to = self._cy - self._height_current // 2
             display.filled_triangle(x_to, y_to, x_bi, y_bi, 0)
+
+        if self._eyelid_height_bottom_current > 0:
+            d = self._eyelid_height_bottom - self._eyelid_height_bottom_current
+            display.filled_circle(
+                cx=self._cx,
+                cy=self._cy + self._height_current // 2 + d,
+                r=self._width_current // 2,
+                color=0,
+                shrink=0.6,
+            )
 
 
 class RoboFace(Face):
