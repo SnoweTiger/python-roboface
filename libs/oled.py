@@ -97,7 +97,7 @@ class SSD1306:
     def invert(self, invert: bool) -> None:
         self._write_cmd(0xA7 if invert else 0xA6)
 
-    def show(self) -> None:
+    def show(self, file_name: str | None = None) -> None:
         # Set the full window and push buffer
         self._write_cmd(0x21)  # COLUMN_ADDR
         self._write_cmd(0)
@@ -114,6 +114,8 @@ class SSD1306:
         # Also flush to simulator if used
         if isinstance(self.backend, TkSimulator):
             self.backend.flush(self.buffer, self.width, self.height)
+            if file_name is not None:
+                self.backend.save_to_file(filename=file_name)
 
     def fill(self, color: int) -> None:
         fill_byte = 0xFF if color else 0x00

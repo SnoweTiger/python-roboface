@@ -14,6 +14,9 @@ def main() -> None:
         oled = SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT, I2C_BUS, I2C_ADDR)
         robo = RoboFace(oled, animation_duration=0.8, style=Style.robo_quad)
 
+        # save render image to file. Only for emulator!
+        robo.file_prefix = Style.robo_quad.name
+
         # Async
         asyncio.run(robo.set_mood_animated(Mood.smile))
         asyncio.run(robo.set_mood_animated(Mood.neutral))

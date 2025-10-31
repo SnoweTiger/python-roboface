@@ -103,6 +103,22 @@ class TkSimulator(Display):
         self._tk.update_idletasks()
         self._tk.update()
 
+    def save_to_file(self, filename="screenshot.png") -> None:
+        from PIL import ImageGrab
+
+        if self._tk:
+            window = self._tk
+
+            window.update_idletasks()
+            x = window.winfo_rootx()
+            y = window.winfo_rooty()
+            width = window.winfo_width()
+            height = window.winfo_height()
+
+            screenshot = ImageGrab.grab(bbox=(x, y, x + width, y + height))
+            screenshot.save(filename)
+            print(f"Screenshot saved to {os.path.abspath(filename)}")
+
 
 def check_connection(i2c_bus: int, i2c_addr: int) -> Display:
     # Prefer Linux I2C if available

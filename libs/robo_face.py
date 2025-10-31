@@ -676,6 +676,8 @@ class RoboFace(Face):
         self.mood = Mood.neutral
         self.radius = math.ceil(min(oled.width, oled.height) * 0.95) // 2
 
+        self.file_prefix = None
+
         # style
         match style:
             case Style.robo_round:
@@ -720,7 +722,7 @@ class RoboFace(Face):
         if hasattr(self, "eyebrow_l"):
             self.eyebrow_l.set(self.mood, 1.0)
 
-        self._draw_frame()
+        self._draw_frame(self.file_prefix)
 
     async def _animate(self, duration: float, fps: int, reverse: bool = False) -> None:
         frames_n = int(duration * fps)
@@ -776,7 +778,7 @@ class RoboFace(Face):
         self.set_mood(mood)
         await self._animate(duration, fps)
 
-    def _draw_frame(self) -> None:
+    def _draw_frame(self, file_prefix: str | None = None) -> None:
         self.oled.fill(0)
         if self.border:
             self.oled.circle(self.cx, self.cy, self.radius, 1)
@@ -797,4 +799,9 @@ class RoboFace(Face):
         if hasattr(self, "mouth"):
             self.mouth.draw(self.oled)
 
-        self.oled.show()
+        if file_prefix is not None:
+            file_name = f"{file_prefix}_{self.mood.name}.png"
+        else:
+            file_name = None
+
+        self.oled.show(file_name)
