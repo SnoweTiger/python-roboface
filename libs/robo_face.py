@@ -223,7 +223,7 @@ class SmileEye(Eye):
             case Mood.happy:
                 if self._has_eye_lid:
                     # eyelids
-                    eyelid_height = math.ceil(transition * self._radius_current)
+                    eyelid_height = math.ceil(transition * (self._radius_current - 1))
                     if self._eyelid_height == eyelid_height:
                         result = False
                     else:
@@ -231,14 +231,14 @@ class SmileEye(Eye):
                         result = True
                 else:
                     # ellipsis
-                    if self._ellipsis == 1 - transition:
+                    ellipsis = 1 - transition
+                    if self._ellipsis == ellipsis:
                         result = False
                     else:
-                        self._ellipsis = 1 - transition
+                        self._ellipsis = ellipsis
                         result = True
 
             case Mood.neutral | Mood.smile | _:
-                # default
                 pass
 
         return result
@@ -703,7 +703,7 @@ class RoboFace(Face):
                     right=False,
                     get_shocked=False,
                 )
-                self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)
+                self.eye_r = SmileEye.from_face(face=self, has_eye_lid=True)  #
                 self.eyebrow_l = SmileEyebrow.from_face(face=self)
                 self.eyebrow_r = SmileEyebrow.from_face(face=self, is_right=True)
                 self.mouth = SmileMouth.from_face(face=self)
