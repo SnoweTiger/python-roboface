@@ -11,7 +11,6 @@ I2C_BUS = 3  # for LuckFox Pico Pro/Max 3 by default -> /dev/i2c-3
 def main() -> None:
     try:
         oled = SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT)
-        robo = RoboFace(oled, animation_duration=0.8, style=Style.robo_quad)
 
         for style in Style:
             robo = RoboFace(oled, style=style)
