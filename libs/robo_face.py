@@ -592,6 +592,7 @@ class RoboQuadEye(Eye):
         result = False
         self._height_current = self._height
         self._eyelid_height_current = 0
+        self._eyelid_height_bottom_current = 0
 
         match self._mood:
             case Mood.shocked if self._get_shocked:
