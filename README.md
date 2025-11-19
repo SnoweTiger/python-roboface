@@ -26,6 +26,7 @@ For example you can see main.py or just run it.
 | :-------- | :--------------------------------------------: | -------------------------------------------: | -------------------------------------------- | ---------------------------------------------- | -------------------------------------------- |
 | Smile     |   ![image info](./images/smile_neutral.png)    |      ![image info](./images/smile_smile.png) | ![image info](./images/smile_happy.png)      | ![image info](./images/smile_shocked.png)      | ![image info](./images/smile_angry.png)      |
 | RoboRound | ![image info](./images/robo_round_neutral.png) | ![image info](./images/robo_round_smile.png) | ![image info](./images/robo_round_happy.png) | ![image info](./images/robo_round_shocked.png) | ![image info](./images/robo_round_angry.png) |
+| RoboQuad  | ![image info](./images/robo_quad_neutral.png)  |  ![image info](./images/robo_quad_smile.png) | ![image info](./images/robo_quad_happy.png)  | ![image info](./images/robo_quad_shocked.png)  | ![image info](./images/robo_quad_angry.png)  |
 
 ## Support project
 
