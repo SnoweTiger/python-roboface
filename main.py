@@ -14,9 +14,6 @@ def main() -> None:
         oled = SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT, I2C_BUS, I2C_ADDR)
         robo = RoboFace(oled, animation_duration=0.8, style=Style.robo_quad)
 
-        # save render image to file. Only for emulator!
-        robo.file_prefix = Style.robo_quad.name
-
         # Async
         asyncio.run(robo.set_mood_animated(Mood.smile))
         asyncio.run(robo.set_mood_animated(Mood.neutral))
@@ -31,20 +28,24 @@ def main() -> None:
         asyncio.run(robo.set_mood_animated(Mood.neutral))
 
         # Sync
+        delay = 3
         robo.set_mood(Mood.neutral)
-        time.sleep(1)
-
-        robo.set_mood(Mood.shocked)
-        time.sleep(1)
+        time.sleep(delay)
 
         robo.set_mood(Mood.angry)
-        time.sleep(1)
+        time.sleep(delay)
 
         robo.set_mood(Mood.smile)
-        time.sleep(1)
+        time.sleep(delay)
 
         robo.set_mood(Mood.happy)
-        time.sleep(1)
+        time.sleep(delay)
+
+        robo.set_mood(Mood.shocked)
+        time.sleep(delay)
+
+        robo.set_mood(Mood.neutral)
+        time.sleep(delay)
 
         oled.power_off()
     except Exception as e:
